@@ -11,13 +11,13 @@ from autocorrect import Speller
 import numpy as np
 import os
 
+# Uncomment to download nltk packages
 # nltk.download('omw-1.4')
 # nltk.download('wordnet')
 # nltk.download('averaged_perceptron_tagger')
 
 # define root path to current directory
 root = os.getcwd()
-
 
 # comparison words
 # comparison = ['under', 'over', 'and', 'or', 'below', 'between', 'above', 'after', 'more', 'from', 'to']
