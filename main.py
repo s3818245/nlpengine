@@ -10,6 +10,9 @@ from nltk import RegexpParser
 from autocorrect import Speller
 import numpy as np
 import os
+import dateparser
+from dateparser.search import search_dates
+import sutime
 
 # Uncomment to download nltk packages
 # nltk.download('omw-1.4')
@@ -93,17 +96,22 @@ def avg_map_word(keywords, chunks, words, model):
 
     # try mapping by chunks
     for chunk in chunks.keys():
+        modified_chunk = chunk.replace("_", "")
+
         chunk_mapped = ''
         highest_similarity = 0
 
         # map to internal word
         for word in words:
             try:
-                vec_simi = model.similarity(chunk, word)
+                #vec_simi = model.similarity(chunk, word)
+                vec_simi = model.similarity(modified_chunk, word)
             except:
                 vec_simi = 0
+
             try:
-                keyword_synset = wn.synsets(chunk)[0]
+                # keyword_synset = wn.synsets(chunk)[0]
+                keyword_synset = wn.synsets(modified_chunk)[0]
                 word_synset = wn.synsets(word)[0]
                 net_simi = wn.path_similarity(keyword_synset, word_synset)
             except:
@@ -120,6 +128,7 @@ def avg_map_word(keywords, chunks, words, model):
                 if token in keywords:
                     keywords.remove(token)
             avg_map[chunk] = chunk_mapped
+            continue
 
     """Map keyword to the word (in list words) with highest average similarity value"""
     for keyword in keywords:
@@ -365,23 +374,30 @@ def map_sentence(sentence, words):
 
     mapped_chunks = {key: val for key, val in chunks.items() if key in avg_mapped}
 
+    joined_tokens = " ".join(all_tokens)
     # group mapped chunks
     for key in mapped_literal_chunks.keys():
-        sentence.replace(chunks[key], key)
+        joined_tokens = joined_tokens.replace(chunks[key], key)
 
-    print("Mapped chunks", mapped_chunks)
+    # print("Mapped chunks", mapped_chunks)
     for key in mapped_chunks.keys():
-        sentence.replace(chunks[key], key)
+        # print("Joined tokens", joined_tokens)
+        # print("Replace chunk", chunks[key])
+        # print(" chunk", key)
 
+        joined_tokens = joined_tokens.replace(chunks[key], key)
+
+    all_tokens = joined_tokens.split(" ")
+    print(all_tokens)
     # mapped items in order
     mapped_query = []
     for token in all_tokens:
         if token in literal_mapped:
-            mapped_query.append(literal_mapped[token][0])
+            mapped_query.append(literal_mapped[token])
         elif token in operators_words:
             mapped_query.append(word_operator_map[token])
         elif token in avg_mapped:
-            mapped_query.append(avg_mapped[token][0])
+            mapped_query.append(avg_mapped[token])
         else:
             mapped_query.append(token)
 
@@ -395,11 +411,14 @@ def main():
     model = get_word2vec()
     query = ["Average spending of customers in each country",
              "Average spending of customers before last November",
-             "Most profit from company in Vietnam",
-             "count all people who have insurance and over 50 years old"]
+             "Most profit from production company in Vietnam",
+             "Most profit from production company in Feb 2nd 2022",
+             "list all id",
+             "count all patient who have insurance and over 50 years old"]
 
-    sample = ['sale', 'mean', 'country', 'client', 'age', 'count', 'insurance', 'production_company']
+    sample = ['id_', 'sale', 'mean', 'country', 'client', 'age', 'count', 'insurance', 'production_company', 'date']
 
+    # print(model.similarity("years-old", "age"))
     # mapped = [model.most_similar_to_given(x, sample) for x in filtered_sentence]
     for sentence in query:
         filtered, chunks, mapped, avg_mapped, operators, mapped_query = map_sentence(sentence, sample)
@@ -412,7 +431,7 @@ def main():
         # print(">> Operators: \n", operators)
         # print(">> Chunks (tokens with compound nouns): \n", chunks)
         # print(">> Mapped by wordnet vs word2vec: \n", mapped)
-        # print(">> Mapped average of wordnet and word2vec: \n", avg_mapped)
+        print(">> Mapped average of wordnet and word2vec: \n", avg_mapped)
         print()
 
 
