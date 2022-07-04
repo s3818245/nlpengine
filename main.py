@@ -10,6 +10,7 @@ from nltk import RegexpParser
 from autocorrect import Speller
 import numpy as np
 import os
+import re
 import dateparser
 from dateparser.search import search_dates
 import sutime
@@ -22,10 +23,16 @@ import sutime
 # define root path to current directory
 root = os.getcwd()
 
-
 # comparison words
 # comparison = ['under', 'over', 'and', 'or', 'below', 'between', 'above', 'after', 'more', 'from', 'to']
 # comparison = set(comparison)
+
+aggregator = ["count", "average", "min", "max", "sum", "median",
+              "standard_deviation", "standard_deviation_population",
+              "variance", "variance_population"]
+
+# list of operators that can be mapped using word2vec and wordnet
+flexible_operators = ["average", "count", "sum", "min", "max"]
 
 
 # stemming - Snowball stemmer
@@ -60,51 +67,19 @@ def get_word2vec():
     return model
 
 
-def map_word(keywords, words, model):
-    vec_map = dict()
-    net_map = dict()
-
-    for keyword in keywords:
-        """Map keyword to words using wordnet and word2vec"""
-        try:
-            vec_mapped = model.most_similar_to_given(keyword, words)
-        except:
-            vec_mapped = None
-        highest_similarity = 0
-        net_mapped = ''
-
-        keyword_synset = wn.synsets(keyword)[0]
-        for word in words:
-            try:
-                word_synset = wn.synsets(word)[0]
-                similarity = wn.path_similarity(keyword_synset, word_synset)
-            except:
-                similarity = 0
-
-            if similarity > highest_similarity:
-                highest_similarity = similarity
-                net_mapped = word
-
-        vec_map[keyword] = vec_mapped
-        net_map[keyword] = net_mapped
-
-    return vec_map, net_map
-
-
 def avg_map_word(keywords, chunks, words, model):
     avg_map = dict()
 
     # try mapping by chunks
     for chunk in chunks.keys():
         modified_chunk = chunk.replace("_", "")
-
         chunk_mapped = ''
         highest_similarity = 0
 
         # map to internal word
         for word in words:
             try:
-                #vec_simi = model.similarity(chunk, word)
+                # vec_simi = model.similarity(chunk, word)
                 vec_simi = model.similarity(modified_chunk, word)
             except:
                 vec_simi = 0
@@ -127,7 +102,7 @@ def avg_map_word(keywords, chunks, words, model):
             for token in chunks[chunk]:
                 if token in keywords:
                     keywords.remove(token)
-            avg_map[chunk] = chunk_mapped
+            avg_map[chunk] = (chunk_mapped, highest_similarity)
             continue
 
     """Map keyword to the word (in list words) with highest average similarity value"""
@@ -158,6 +133,11 @@ def avg_map_word(keywords, chunks, words, model):
 
 
 def mapped_operators(tokens):
+    """
+    :param tokens: list of tokens in tokenized query
+    :return: map of words to its respective internal operator
+    """
+
     miscellaneous_operators = {
         "less": {"<", "less", "smaller", "below", "under", "before"},
         "greater": {">", "over", "bigger", "greater", "more", "above", "after"},
@@ -166,50 +146,77 @@ def mapped_operators(tokens):
         "between": {"between"},
         "and": {"and"},
         "or": {"or"},
-        "mean": {"mean", "average"}
+        "mean": {"mean", "average"},
+        "group_by": {"each", "by", "group"}
     }
 
+    range_operator_chunk = [
+        'between \S* and \S*',
+        'from \S* to \S*',
+        'from \S* - \S*'
+    ]
+
     operators_map = dict()
+    joined_token = " ".join(tokens)
+
+    for regex in range_operator_chunk:
+        matched_phrases = re.findall(regex, joined_token)
+        for phrase in matched_phrases:
+            replaced_phrase = "_".join(phrase.split(" "))
+            joined_token = joined_token.replace(phrase, replaced_phrase)
+            operators_map[replaced_phrase] = "between"
+
+    tokens = joined_token.split(" ")
     for word in tokens:
         for key, val in miscellaneous_operators.items():
+            # if word match operator -> add to operators mapping
             if word in val:
                 operators_map[word] = key
 
-    return operators_map
+    return operators_map, tokens
 
 
-def literal_matching(tokens, chunks, internal_words):
+def chunking_measures(tokens):
+    measures_regex = '(standard deviation|variance)( population)?'
+    joined_tokens = " ".join(tokens)
+
+    match_regex = re.findall(measures_regex, joined_tokens)
+    print(match_regex)
+
+
+def literal_matching(tokens, chunks, internal_keywords):
     """
     :param chunks: compound nouns found in query
     :param tokens: tokens of user's query
-    :param internal_words: internal keywords (list of schemas),
-    :return: map tokens to keywords (tokens contains all or part of keywords)
+    :param internal_keywords: internal keywords (list of schemas),
+    :return: map tokens to keywords (tokens contains all or part of keywords), list of remaining tokens
     """
 
     literal_map = dict()
 
-    internal_words = set(internal_words)
+    internal_keywords = set(internal_keywords)
     for chunk in chunks.keys():
-        if chunk in internal_words:
-            literal_map[chunk] = chunk
+        if chunk in internal_keywords:
+            literal_map[chunk] = [chunk]
             # removed mapped chunk from list of words
-            for token in chunks[chunk]:
+            for token in chunks[chunk].split(" "):
                 if token in tokens:
                     tokens.remove(token)
-        else:
-            splitted_chunk = chunk.split("_")
-            for token in splitted_chunk:
-                if token in internal_words:
-                    literal_map[chunk] = token
+        # else:
+        #     # if the chunk is not detected, try mapping by individual word in chunk
+        #     splitted_chunk = chunk.split("_")
+        #     for token in splitted_chunk:
+        #         if token in internal_keywords:
+        #             literal_map[token] = token
 
     for token in tokens:
-        if token in internal_words:
+        if token in internal_keywords:
             # extract exact map (token/ word in query exactly the same as keywords)
             literal_map[token] = [token]
             tokens.remove(token)
         else:
             # check if token in query match a part of keywords
-            for word in internal_words:
+            for word in internal_keywords:
                 if word.find(token) != -1:  # check if token is a substring
                     tokens.remove(token)
                     # if there is already a word mapped with token -> token can be mapped with multiple keywords
@@ -261,22 +268,6 @@ def pos_tagging(tokens):
         return tagged list and chunked list
     """
     token_tag = pos_tag(tokens)
-    # pattern = "NP:{<JJ>?<NN|NNP|NNS|NNPS>+<JJ>?}"
-    #
-    # regex_parser = RegexpParser(pattern)
-    # compound = regex_parser.parse(token_tag)
-    #
-    # # list storing words and compound words detected
-    # chunks = []
-    # # iterate each branch of a tree
-    # for branch in compound:
-    #     # if branch is another subtree -> it is a compound nouns
-    #     if type(branch) == nltk.Tree:
-    #         chunks.append("_".join([token for token, pos in branch.leaves()]))
-    #     else:
-    #         # if not a subtree -> tuple of (word, pos)
-    #         word, pos = branch
-    #         chunks.append(word)
 
     token_tag_map = dict()
     for word, pos in token_tag:
@@ -310,15 +301,10 @@ def chunking(tokens):
     return chunks
 
 
-def filter_sentence(tokens, operators):
+def filter_sentence(tokens, comparion_words):
     """Filter stopwords, comparisons from tokens of sentence"""
     # set of english stopwords
     stop_words = set(stopwords.words('english'))
-
-    # # get list of words detected as operator
-    # word_operator_map = mapped_operators(tokens)
-    # operators = word_operator_map.keys()
-
     # get list of token and its tags
     token_tag_map = pos_tagging(tokens)
 
@@ -328,9 +314,9 @@ def filter_sentence(tokens, operators):
     for word in tokens:
         if word in stop_words:
             continue
-        if word in operators:
-            continue
         if token_tag_map[word] == "CD":
+            continue
+        if word in comparion_words:
             continue
         else:
             filtered_sentence.append(word)
@@ -353,57 +339,59 @@ def map_sentence(sentence, words):
     all_tokens = nltk.word_tokenize(spell_check)
 
     # mapped operators
-    word_operator_map = mapped_operators(all_tokens)
+    word_operator_map, remaining_tokens = mapped_operators(all_tokens)
     operators_words = set(word_operator_map.keys())
 
+    all_tokens = remaining_tokens
     # chunking tokens
     chunks = chunking(all_tokens)
 
-    # filter stopwords and comparisons, number
-    filtered_sentence = filter_sentence(all_tokens, operators_words)
+    # filter stopwords, number
+    filtered_sentence = filter_sentence(remaining_tokens, operators_words)
 
     # try literal mapping
     literal_mapped, remaining_tokens = literal_matching(filtered_sentence, chunks, words)
     # print(f"Literal mapped: {literal_mapped}\n, Remaining tokens: {remaining_tokens}")
-
     mapped_literal_chunks = {key: val for key, val in chunks.items() if key in literal_mapped}
 
     # map remaining tokens using word2vec and wordnet
-    mapped = [x for x in map_word(remaining_tokens, words, model)]
     avg_mapped = avg_map_word(remaining_tokens, chunks, words, model)
-
     mapped_chunks = {key: val for key, val in chunks.items() if key in avg_mapped}
 
     joined_tokens = " ".join(all_tokens)
+
     # group mapped chunks
     for key in mapped_literal_chunks.keys():
         joined_tokens = joined_tokens.replace(chunks[key], key)
-
     # print("Mapped chunks", mapped_chunks)
     for key in mapped_chunks.keys():
-        # print("Joined tokens", joined_tokens)
-        # print("Replace chunk", chunks[key])
-        # print(" chunk", key)
-
         joined_tokens = joined_tokens.replace(chunks[key], key)
 
     all_tokens = joined_tokens.split(" ")
-    print(all_tokens)
     # mapped items in order
     mapped_query = []
+    stop_words = set(stopwords.words('english'))
     for token in all_tokens:
         if token in literal_mapped:
-            mapped_query.append(literal_mapped[token])
+            mapped_query.append(literal_mapped[token][0])
         elif token in operators_words:
             mapped_query.append(word_operator_map[token])
         elif token in avg_mapped:
-            mapped_query.append(avg_mapped[token])
+            mapped_query.append(avg_mapped[token][0])
+        elif token in stop_words:
+            continue
         else:
             mapped_query.append(token)
 
+    mapped_stuffs = {
+        "dimensions": [],
+        "measures": [],
+        "filters": []
+    }
+
     # mapped_query = " ".join(mapped_query)
 
-    return filtered_sentence, chunks, mapped, avg_mapped, operators_words, mapped_query
+    return filtered_sentence, chunks, avg_mapped, operators_words, mapped_query
 
 
 def main():
@@ -411,8 +399,8 @@ def main():
     model = get_word2vec()
     query = ["Average spending of customers in each country",
              "Average spending of customers before last November",
-             "Most profit from production company in Vietnam",
-             "Most profit from production company in Feb 2nd 2022",
+             "Most profit from production company between 20 and 50",
+             "standard deviations of past year",
              "list all id",
              "count all patient who have insurance and over 50 years old"]
 
@@ -421,7 +409,7 @@ def main():
     # print(model.similarity("years-old", "age"))
     # mapped = [model.most_similar_to_given(x, sample) for x in filtered_sentence]
     for sentence in query:
-        filtered, chunks, mapped, avg_mapped, operators, mapped_query = map_sentence(sentence, sample)
+        filtered, chunks, avg_mapped, operators, mapped_query = map_sentence(sentence, sample)
 
         print("Sentence: ", sentence)
         print(">> Mapped query: ", mapped_query)
@@ -430,8 +418,7 @@ def main():
         # print(">> Filtered: ", filtered)
         # print(">> Operators: \n", operators)
         # print(">> Chunks (tokens with compound nouns): \n", chunks)
-        # print(">> Mapped by wordnet vs word2vec: \n", mapped)
-        print(">> Mapped average of wordnet and word2vec: \n", avg_mapped)
+        # print(">> Mapped average of wordnet and word2vec: \n", avg_mapped)
         print()
 
 
