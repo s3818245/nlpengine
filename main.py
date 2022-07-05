@@ -11,6 +11,7 @@ from autocorrect import Speller
 import numpy as np
 import os
 import re
+from collections import deque
 import dateparser
 from dateparser.search import search_dates
 import sutime
@@ -22,17 +23,6 @@ import sutime
 
 # define root path to current directory
 root = os.getcwd()
-
-# comparison words
-# comparison = ['under', 'over', 'and', 'or', 'below', 'between', 'above', 'after', 'more', 'from', 'to']
-# comparison = set(comparison)
-
-aggregator = ["count", "average", "min", "max", "sum", "median",
-              "standard_deviation", "standard_deviation_population",
-              "variance", "variance_population"]
-
-# list of operators that can be mapped using word2vec and wordnet
-flexible_operators = ["average", "count", "sum", "min", "max"]
 
 
 # stemming - Snowball stemmer
@@ -147,24 +137,47 @@ def mapped_operators(tokens):
         "and": {"and"},
         "or": {"or"},
         "mean": {"mean", "average"},
-        "group_by": {"each", "by", "group"}
+        "group_by": {"each", "by", "group"},
+        "min": {"least", "min", "minimum", "smallest", "lowest"},
+        "max": {"max", "greatest", "most", "maximum"},
+        "median": {"median"},
+        "count": {"count"},
+        "list": {"list"}
     }
+
+    aggregator = ["count", "average", "min", "max", "sum", "median", "list"]
+
+    # list of operators that can be mapped using word2vec and wordnet
+    flexible_operators = ["average", "count", "sum", "min", "max"]
+
+    operators_map = dict()
+
+    joined_token = " ".join(tokens)
 
     range_operator_chunk = [
         'between \S* and \S*',
         'from \S* to \S*',
         'from \S* - \S*'
     ]
-
-    operators_map = dict()
-    joined_token = " ".join(tokens)
-
     for regex in range_operator_chunk:
         matched_phrases = re.findall(regex, joined_token)
         for phrase in matched_phrases:
             replaced_phrase = "_".join(phrase.split(" "))
             joined_token = joined_token.replace(phrase, replaced_phrase)
             operators_map[replaced_phrase] = "between"
+
+    aggregator_chunk = {
+        "standard deviation": "stdev",
+        "standard deviation population": "stdevp",
+        "variance": "var",
+        "variance population": "varp"
+    }
+
+    for aggregator, replacement in aggregator_chunk.items():
+        matched_phrases = re.findall(aggregator, joined_token)
+        for phrase in matched_phrases:
+            joined_token = joined_token.replace(phrase, replacement)
+            operators_map[replacement] = replacement
 
     tokens = joined_token.split(" ")
     for word in tokens:
@@ -176,12 +189,12 @@ def mapped_operators(tokens):
     return operators_map, tokens
 
 
-def chunking_measures(tokens):
-    measures_regex = '(standard deviation|variance)( population)?'
-    joined_tokens = " ".join(tokens)
-
-    match_regex = re.findall(measures_regex, joined_tokens)
-    print(match_regex)
+# def chunking_measures(tokens):
+#     measures_regex = '(standard deviation|variance)( population)?'
+#     joined_tokens = " ".join(tokens)
+#
+#     match_regex = re.findall(measures_regex, joined_tokens)
+#     print(match_regex)
 
 
 def literal_matching(tokens, chunks, internal_keywords):
@@ -218,7 +231,8 @@ def literal_matching(tokens, chunks, internal_keywords):
             # check if token in query match a part of keywords
             for word in internal_keywords:
                 if word.find(token) != -1:  # check if token is a substring
-                    tokens.remove(token)
+                    if token in tokens:
+                        tokens.remove(token)
                     # if there is already a word mapped with token -> token can be mapped with multiple keywords
                     if token in literal_map:
                         literal_map[token].append(word)
@@ -276,9 +290,11 @@ def pos_tagging(tokens):
     return token_tag_map
 
 
-def chunking(tokens):
+def chunking(tokens, operator_words):
     """get compound nouns from pos tagged words
         defined structure of compound nouns is: Noun + Adjective (optional)"""
+    tokens = [token for token in tokens if token not in operator_words]
+
     token_tag = pos_tag(tokens)
     pattern = "NP:{<JJ>?<NN|NNP|NNS|NNPS>+<JJ>?}"
 
@@ -301,7 +317,7 @@ def chunking(tokens):
     return chunks
 
 
-def filter_sentence(tokens, comparion_words):
+def filter_sentence(tokens, operator_words):
     """Filter stopwords, comparisons from tokens of sentence"""
     # set of english stopwords
     stop_words = set(stopwords.words('english'))
@@ -316,7 +332,7 @@ def filter_sentence(tokens, comparion_words):
             continue
         if token_tag_map[word] == "CD":
             continue
-        if word in comparion_words:
+        if word in operator_words:
             continue
         else:
             filtered_sentence.append(word)
@@ -324,8 +340,50 @@ def filter_sentence(tokens, comparion_words):
     return filtered_sentence
 
 
+def mapped_types(mapped_query, metadata):
+    mapped_stuffs = {
+        "dimensions": [],
+        "measures": [],
+        "filters": []
+    }
+
+    filter = {
+        "less", "greater", "not", "equal", "between", "and", "or", "group_by"
+    }
+    aggregator = {"count", "min", "max", "sum", "median", "stdev", "stdevp", "var", "varp", "mean", "list"}
+    fields = set(metadata)
+
+    last_added = deque()
+
+    for token in mapped_query:
+        if token in filter:
+            mapped_stuffs["filters"].append(token)
+            last_added.append("filters")
+        elif token in aggregator:
+            mapped_stuffs["measures"].append(token)
+            last_added.append("measures")
+        elif token in fields:
+            if len(last_added) > 0:
+                last_added_type = last_added.popleft()
+                mapped_stuffs[last_added_type].append(token)
+            else:
+                mapped_stuffs["filters"].append(token)
+
+            mapped_stuffs["dimensions"].append(token)
+        else:
+            # if not all 3 then itz filter value
+            mapped_stuffs["filters"].append(token)
+
+    return mapped_stuffs
+
+
 def map_sentence(sentence, words):
     """Map keywords from sentence to word in the list words"""
+
+    # aggregator = ["count", "average", "min", "max", "sum", "median", "list"]
+
+    # add aggregator to list of keywords
+    # words = words+aggregator
 
     # Initialize spell checker and word2vec
     speller = Speller()
@@ -344,7 +402,7 @@ def map_sentence(sentence, words):
 
     all_tokens = remaining_tokens
     # chunking tokens
-    chunks = chunking(all_tokens)
+    chunks = chunking(all_tokens, operators_words)
 
     # filter stopwords, number
     filtered_sentence = filter_sentence(remaining_tokens, operators_words)
@@ -372,10 +430,10 @@ def map_sentence(sentence, words):
     mapped_query = []
     stop_words = set(stopwords.words('english'))
     for token in all_tokens:
-        if token in literal_mapped:
-            mapped_query.append(literal_mapped[token][0])
-        elif token in operators_words:
+        if token in operators_words:
             mapped_query.append(word_operator_map[token])
+        elif token in literal_mapped:
+            mapped_query.append(literal_mapped[token][0])
         elif token in avg_mapped:
             mapped_query.append(avg_mapped[token][0])
         elif token in stop_words:
@@ -383,28 +441,23 @@ def map_sentence(sentence, words):
         else:
             mapped_query.append(token)
 
-    mapped_stuffs = {
-        "dimensions": [],
-        "measures": [],
-        "filters": []
-    }
-
     # mapped_query = " ".join(mapped_query)
-
     return filtered_sentence, chunks, avg_mapped, operators_words, mapped_query
 
 
 def main():
     speller = Speller()
     model = get_word2vec()
-    query = ["Average spending of customers in each country",
+    query = ["Average spending of customers in Tokyo Japan",
              "Average spending of customers before last November",
-             "Most profit from production company between 20 and 50",
+             "Most profit from production company with sale between 20 and 50",
              "standard deviations of past year",
              "list all id",
-             "count all patient who have insurance and over 50 years old"]
+             "how many patients are over 50 years old",
+             "count patients who have insurance and over 50 years old",
+             "numbers of patients who have insurance and over 50 years old"]
 
-    sample = ['id_', 'sale', 'mean', 'country', 'client', 'age', 'count', 'insurance', 'production_company', 'date']
+    sample = ['id_', 'sale', 'country', 'client', 'age', 'insurance', 'production_company', 'date', 'city']
 
     # print(model.similarity("years-old", "age"))
     # mapped = [model.most_similar_to_given(x, sample) for x in filtered_sentence]
@@ -413,7 +466,7 @@ def main():
 
         print("Sentence: ", sentence)
         print(">> Mapped query: ", mapped_query)
-
+        print("Sorted structure: ", mapped_types(mapped_query, sample))
         # Detailed output
         # print(">> Filtered: ", filtered)
         # print(">> Operators: \n", operators)
