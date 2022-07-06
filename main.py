@@ -348,7 +348,7 @@ def map_sentence(sentence, words):
     lemmed = lem_sent(sentence)
     # spell check lemmatized sentence
     # spell_check = speller(lemmed)
-    spell_check = corrector.FixFragment(sentence)
+    spell_check = corrector.FixFragment(lemmed)
     all_tokens = nltk.word_tokenize(spell_check)
 
     # mapped operators
@@ -356,6 +356,7 @@ def map_sentence(sentence, words):
     operators_words = set(word_operator_map.keys())
 
     all_tokens = remaining_tokens
+
     # chunking tokens
     chunks, chunked_tokens = chunking(all_tokens, operators_words)
 
