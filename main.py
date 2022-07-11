@@ -14,7 +14,6 @@ import os
 import re
 import string
 from collections import deque
-
 import spacy
 import en_core_web_sm
 
@@ -75,9 +74,18 @@ def spellcheck(sentence, name_chunks):
     # filter out names before spell checking
     tokens = [token for token in sentence if token not in name_chunks]
 
-    spell_checked = corrector.FixFragment(" ".join(tokens))
+    spell_checked = corrector.FixFragment(" ".join(tokens)).split(" ")
+    spell_checked = deque(spell_checked)
+    spell_checked_query = list()
 
-    return spell_checked.split(" ")
+    # create a list with spell checked words + named entities
+    for word in sentence:
+        if word not in name_chunks:
+            spell_checked_query.append(spell_checked.popleft())
+        else:
+            spell_checked_query.append(word)
+
+    return spell_checked_query
 
 
 def get_word2vec():
@@ -152,6 +160,7 @@ def avg_map_word(words, internal_keywords, name_list):
                 for chunk_word in word.split("_"):
                     chunk_mapped, chunk_similarity = map_word(chunk_word)
                     if chunk_mapped is not None:
+                        mapped = True
                         avg_map[chunk_word] = (chunk_mapped, chunk_similarity)
                     else:
                         avg_map[chunk_word] = ('', 0)
@@ -354,6 +363,15 @@ def named_entities(sentence):
                 name_map[name_phrase] = label
                 sentence = sentence.replace(name, name_phrase)
 
+    amount_tag = ["PERCENT", "QUANTITY", "MONEY"]
+    for label in amount_tag:
+        if label in entity_map:
+            for amount in entity_map[label]:
+                amount_phrase = amount.replace(" - ", " to ")
+                amount_phrase = amount_phrase.replace(" ", "_")
+                amount_phrase = amount_phrase.replace("$", "")
+                sentence = sentence.replace(amount, amount_phrase)
+
     # print(entity_map)
     # print("names", name_map)
     # print("Modified sentence", processed_sentence)
@@ -397,6 +415,8 @@ def map_sentence(sentence, words):
 
     all_tokens = spellcheck(lemmed, name_map)
 
+    # print("All tokens ", all_tokens)
+
     # mapped operators
     word_operator_map, remaining_tokens = mapped_operators(all_tokens)
     operators_words = set(word_operator_map.keys())
@@ -435,7 +455,10 @@ def map_sentence(sentence, words):
         elif token in literal_mapped:
             mapped_query.append(literal_mapped[token][0])
         elif token in avg_mapped:
+            # if token is in named entity and was mapped to a column -> keep the name + mapped column
             mapped_query.append(avg_mapped[token][0])
+            if token in name_map and token != avg_mapped[token][0]:
+                mapped_query.append(token)
         elif token in stop_words:
             continue
         else:
@@ -513,7 +536,7 @@ def main():
         # print(">> Filtered: ", filtered)
         # print(">> Operators: \n", operators)
         # print(">> Chunks (tokens with compound nouns): \n", chunks)
-        print(">> Mapped average of wordnet and word2vec: \n", avg_mapped)
+        # print(">> Mapped average of wordnet and word2vec: \n", avg_mapped)
         print()
 
 
