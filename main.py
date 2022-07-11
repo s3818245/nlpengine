@@ -124,6 +124,7 @@ def avg_map_word(words, internal_keywords, name_list):
                 vec_simi = model.similarity(curr_word, keyword)
             except:
                 vec_simi = 0
+
             try:
                 keyword_synset = wn.synsets(keyword)[0]
                 word_synset = wn.synsets(curr_word)[0]
@@ -139,7 +140,6 @@ def avg_map_word(words, internal_keywords, name_list):
             else:
                 similarity_measurement_list = np.array([vec_simi, net_simi])
                 avg_simi = np.average(similarity_measurement_list)
-
             # if the current keyword have the highest similarity -> update the mapped keyword
             if avg_simi > highest_similarity:
                 highest_similarity = avg_simi
@@ -160,13 +160,11 @@ def avg_map_word(words, internal_keywords, name_list):
                 for chunk_word in word.split("_"):
                     chunk_mapped, chunk_similarity = map_word(chunk_word)
                     if chunk_mapped is not None:
-                        mapped = True
                         avg_map[chunk_word] = (chunk_mapped, chunk_similarity)
                     else:
                         avg_map[chunk_word] = ('', 0)
             else:
                 avg_map[word] = ('', 0)
-
     return avg_map
 
 
@@ -196,7 +194,6 @@ def mapped_operators(tokens):
     aggregator = ["count", "average", "min", "max", "sum", "median", "list"]
 
     # list of operators that can be mapped using word2vec and wordnet
-    flexible_operators = ["average", "count", "sum", "min", "max"]
 
     operators_map = dict()
 
@@ -206,20 +203,24 @@ def mapped_operators(tokens):
     range_operator_chunk = [
         'between \S* and \S*',
         'from \S* to \S*',
-        'from \S* - \S*'
+        'from \S* - \S*',
+        'between\S*and\S*',
+        '\S*to\S*',
     ]
     for regex in range_operator_chunk:
         matched_phrases = re.findall(regex, joined_token)
         for phrase in matched_phrases:
             replaced_phrase = "_".join(phrase.split(" "))
             joined_token = joined_token.replace(phrase, replaced_phrase)
-            operators_map[replaced_phrase] = "between"
+            # operators_map[replaced_phrase] = "between_range"
+            operators_map[replaced_phrase] = replaced_phrase
 
     aggregator_chunk = {
         "standard deviation": "stdev",
         "standard deviation population": "stdevp",
         "variance": "var",
-        "variance population": "varp"
+        "variance population": "varp",
+        "(count(?: the)(?: number of)|number of)": "count",
     }
     for aggregator, replacement in aggregator_chunk.items():
         matched_phrases = re.findall(aggregator, joined_token)
@@ -306,19 +307,24 @@ def pos_tagging(tokens):
 def chunking(tokens, operator_words, name_chunk):
     """get compound nouns from pos tagged words
         defined structure of compound nouns is: Noun + Adjective (optional)"""
-    # filter out operator words
-    tokens = [token for token in tokens if token not in operator_words]
-    # filter out named entities
-    chunking_tokens = [token for token in tokens if token not in name_chunk]
+    # list storing words and compound words detected
+    chunks = dict()
+
+    # filter out operator words, replace with a random filler word (by) to avoid chunking 2 consecutive nouns
+    tokens = [token if token not in operator_words else "by" for token in tokens]
+
+    special_phrases = ['year old']
+
+    # filter out name chunk, replace with a random filler word (by) to avoid chunking 2 consecutive nouns
+    chunking_tokens = [token if token not in name_chunk else "by" for token in tokens ]
 
     token_tag = pos_tag(chunking_tokens)
-    pattern = "NP:{<JJ>?<NN|NNP|NNS|NNPS>+<JJ>?}"
+    # pattern = "NP:{<JJ>?<NN|NNP|NNS|NNPS>+<JJ>?}"
+    pattern = "NP:{<NN|NNP|NNS|NNPS>+}"
 
     regex_parser = RegexpParser(pattern)
     compound = regex_parser.parse(token_tag)
 
-    # list storing words and compound words detected
-    chunks = dict()
     # iterate each branch of a tree
     for branch in compound:
         # if branch is another subtree -> it is a compound nouns
@@ -331,6 +337,13 @@ def chunking(tokens, operator_words, name_chunk):
     joined_tokens = " ".join(tokens)
     for chunk, phrase in chunks.items():
         joined_tokens = joined_tokens.replace(phrase, chunk)
+
+    # chunking special phrases
+    for phrase in special_phrases:
+        if phrase in joined_tokens:
+            replaced_phrase = phrase.replace(" ", "_")
+            joined_tokens = joined_tokens.replace(phrase, replaced_phrase)
+            chunks[replaced_phrase] = phrase
 
     chunked_tokens = joined_tokens.split(" ")
 
@@ -403,7 +416,6 @@ def filter_sentence(tokens, operator_words):
 
 def map_sentence(sentence, words):
     """Map keywords from sentence to word in the list words"""
-
     # get sentence with chunked named entities
     modified_sentence, entity_map, name_map = named_entities(sentence)
     sentence = modified_sentence
@@ -425,6 +437,7 @@ def map_sentence(sentence, words):
 
     # chunking tokens
     chunks, chunked_tokens = chunking(all_tokens, operators_words, name_map)
+    # print("chunked sentence", chunked_tokens)
 
     # filter stopwords, number
     filtered_sentence = filter_sentence(chunked_tokens, operators_words)
@@ -474,14 +487,11 @@ def mapped_types(mapped_query, metadata):
         "filters": []
     }
 
-    filter = {
-        "less", "greater", "not", "equal", "between", "and", "or", "group_by"
-    }
+    filter = {"less", "greater", "not", "equal", "between", "and", "or", "group_by"}
     aggregator = {"count", "min", "max", "sum", "median", "stdev", "stdevp", "var", "varp", "mean", "list"}
     fields = set(metadata)
 
     last_added = deque()
-
     for token in mapped_query:
         if token in filter:
             mapped_stuffs["filters"].append(token)
@@ -519,10 +529,10 @@ def main():
              "Show 10 cheapest products available",
              "show geo map of customers by country",
              "how many patients are over 50 years old",
-             "count patients who have insurance and over 50 years old",
+             "count the number of patients who have insurance and over 50 years old",
              "numbers of patients who have insurance and over 50 years old"]
 
-    sample = ['id_', 'sale', 'country', 'client', 'age', 'insurance', 'production_company', 'date', 'city']
+    sample = ['sale', 'country', 'client', 'age', 'insurance', 'production_company', 'date', 'city', "movie"]
 
     # print(model.similarity("years-old", "age"))
     # mapped = [model.most_similar_to_given(x, sample) for x in filtered_sentence]
@@ -536,7 +546,7 @@ def main():
         # print(">> Filtered: ", filtered)
         # print(">> Operators: \n", operators)
         # print(">> Chunks (tokens with compound nouns): \n", chunks)
-        # print(">> Mapped average of wordnet and word2vec: \n", avg_mapped)
+        print(">> Mapped average of wordnet and word2vec: \n", avg_mapped)
         print()
 
 
