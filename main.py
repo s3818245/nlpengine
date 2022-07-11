@@ -12,18 +12,32 @@ import jamspell
 import numpy as np
 import os
 import re
+import string
 from collections import deque
-import dateparser
-from dateparser.search import search_dates
-import sutime
+
+import spacy
+import en_core_web_sm
+
+spacy_model = en_core_web_sm.load()
 
 # Uncomment to download nltk packages
 # nltk.download('omw-1.4')
 # nltk.download('wordnet')
 # nltk.download('averaged_perceptron_tagger')
+# nltk.download('maxent_ne_chunker')
+# nltk.download('words')
 
 # define root path to current directory
 root = os.getcwd()
+
+
+def preprocess(sentence):
+    """remove punctuations, extra spaces"""
+    sentence = sentence.strip()
+    sentence = re.sub("\s+", ' ', sentence)
+    punctuation = "!\"#&'()*+,-./:;?@[\]^`{|}~"
+    sentence = "".join([char for char in sentence if char not in punctuation])
+    return sentence
 
 
 # stemming - Snowball stemmer
@@ -38,33 +52,62 @@ def stem_sent(sentence):
 
 
 # lemmatization - WordNetLemmatizer
-def lem_sent(sentence):
-    """Lemmatize sentence to convert to its base form"""
-    sentence = sentence.lower()
+def lem_sent(sentence, name_chunks):
+    """Lemmatize sentence to convert to its base form, except words that are named entities"""
+    lemmatized = list()
     lemmatizer = WordNetLemmatizer()
-    lemmatized = [lemmatizer.lemmatize(word) for word in nltk.word_tokenize(sentence)]
+    for word in nltk.word_tokenize(sentence):
+        if word not in name_chunks:
+            word = lemmatizer.lemmatize(word.lower())
+            lemmatized.append(word)
+        else:
+            lemmatized.append(word)
     return " ".join(lemmatized)
+
+
+def spellcheck(sentence, name_chunks):
+    """check spelling of words, except words that are named entities"""
+    corrector = jamspell.TSpellCorrector()
+    corrector.LoadLangModel('en.bin')
+
+    sentence = nltk.word_tokenize(sentence)
+
+    # filter out names before spell checking
+    tokens = [token for token in sentence if token not in name_chunks]
+
+    spell_checked = corrector.FixFragment(" ".join(tokens))
+
+    return spell_checked.split(" ")
 
 
 def get_word2vec():
     """Get word2vec model"""
     model = None
     if not os.path.isfile("./word2vec.model"):
-        # model = gensim.downloader.load('fasttext-wiki-news-subwords-300')
-        model = gensim.downloader.load('word2vec-google-news-300')
+        model = gensim.downloader.load('fasttext-wiki-news-subwords-300')
+        # model = gensim.downloader.load('word2vec-google-news-300')
+        # model = gensim.downloader.load('conceptnet-numberbatch-17-06-300')
         model.save("word2vec.model")
     else:
         model = KeyedVectors.load("word2vec.model")
     return model
 
 
-def avg_map_word(words, internal_keywords, model):
+def avg_map_word(words, internal_keywords, name_list):
+    model = get_word2vec()
     avg_map = dict()
 
     def map_word(curr_word):
         if "_" in curr_word:
             # if the word is a chunk, preprocess the chunk before mapping
             curr_word = curr_word.replace("_", "")
+
+        if curr_word in name_list:
+            # if curr word is a named entity, only map if it is a location (provide implicit reference for location)
+            if name_list[curr_word] != "LOC" and name_list[curr_word] != "GPE":
+                # if word is not a location, map to itself
+                return curr_word, 1
+
         mapped = None
         highest_similarity = 0
         # map to internal word
@@ -93,6 +136,10 @@ def avg_map_word(words, internal_keywords, model):
             if avg_simi > highest_similarity:
                 highest_similarity = avg_simi
                 mapped = keyword
+
+        # benchmark: only map if similarity is higher than 0.11
+        if highest_similarity < 0.11:
+            mapped, highest_similarity = None, 0
         return mapped, highest_similarity
 
     for word in words:
@@ -122,7 +169,7 @@ def mapped_operators(tokens):
 
     miscellaneous_operators = {
         "less": {"<", "less", "smaller", "below", "under", "before"},
-        "greater": {">", "over", "bigger", "greater", "more", "above", "after"},
+        "greater": {">", "over", "bigger", "greater", "more", "above", "after", "higher"},
         "not": {"not"},
         "equal": {"equal", "="},
         "between": {"between"},
@@ -130,11 +177,11 @@ def mapped_operators(tokens):
         "or": {"or"},
         "mean": {"mean", "average"},
         "group_by": {"each", "by", "group"},
-        "min": {"least", "min", "minimum", "smallest", "lowest"},
+        "min": {"least", "min", "minimum", "smallest", "lowest", "cheapest"},
         "max": {"max", "greatest", "most", "maximum"},
         "median": {"median"},
         "count": {"count"},
-        "list": {"list"}
+        "list": {"list", "show"}
     }
 
     aggregator = ["count", "average", "min", "max", "sum", "median", "list"]
@@ -146,6 +193,7 @@ def mapped_operators(tokens):
 
     joined_token = " ".join(tokens)
 
+    # chunk range operator
     range_operator_chunk = [
         'between \S* and \S*',
         'from \S* to \S*',
@@ -164,7 +212,6 @@ def mapped_operators(tokens):
         "variance": "var",
         "variance population": "varp"
     }
-
     for aggregator, replacement in aggregator_chunk.items():
         matched_phrases = re.findall(aggregator, joined_token)
         for phrase in matched_phrases:
@@ -206,7 +253,7 @@ def literal_matching(tokens, internal_keywords):
 
     for token in tokens:
         mapped = literal_map_word(token)
-        is_mapped = False
+        # map token
         if mapped is not None:
             if token in literal_map:
                 literal_map[token].append(mapped)
@@ -216,6 +263,7 @@ def literal_matching(tokens, internal_keywords):
             if token in tokens:
                 tokens.remove(token)
         elif '_' in token:
+            # if token is a chunk and not able to map -> map by individual token
             for chunk_token in token.split("_"):
                 chunk_mapped = literal_map_word(chunk_token)
                 if chunk_mapped is not None:
@@ -234,41 +282,7 @@ def literal_matching(tokens, internal_keywords):
 
 def pos_tagging(tokens):
     """Part-of-speech tagging for each token, tag notations:
-        CC | Coordinating conjunction |
-        CD | Cardinal number |
-        DT | Determiner |
-        EX | Existential there |
-        FW | Foreign word |
-        IN | Preposition or subordinating conjunction |
-        JJ | Adjective |
-        JJR | Adjective, comparative |
-        JJS | Adjective, superlative |
-        LS | List item marker |
-        MD | Modal |
-        NN | Noun, singular or mass |
-        NNS | Noun, plural |
-        NNP | Proper noun, singular |
-        NNPS | Proper noun, plural |
-        PDT | Predeterminer |
-        POS | Possessive ending |
-        PRP | Personal pronoun |
-        PRP$ | Possessive pronoun |
-        RB | Adverb |
-        RBR | Adverb, comparative |
-        RBS | Adverb, superlative |
-        RP | Particle |
-        SYM | Symbol |
-        VB | Verb, base form |
-        VBD | Verb, past tense |
-        VBG | Verb, gerund or present participle |
-        VBN | Verb, past participle |
-        VBP | Verb, non-3rd person singular present |
-        VBZ | Verb, 3rd person singular present |
-        WDT | Wh-determiner |
-        WP | Wh-pronoun |
-        WP$ | Possessive wh-pronoun |
-        WRB | Wh-adverb |
-
+        https://www.learntek.org/blog/categorizing-pos-tagging-nltk-python/
         return tagged list and chunked list
     """
     token_tag = pos_tag(tokens)
@@ -280,12 +294,15 @@ def pos_tagging(tokens):
     return token_tag_map
 
 
-def chunking(tokens, operator_words):
+def chunking(tokens, operator_words, name_chunk):
     """get compound nouns from pos tagged words
         defined structure of compound nouns is: Noun + Adjective (optional)"""
+    # filter out operator words
     tokens = [token for token in tokens if token not in operator_words]
+    # filter out named entities
+    chunking_tokens = [token for token in tokens if token not in name_chunk]
 
-    token_tag = pos_tag(tokens)
+    token_tag = pos_tag(chunking_tokens)
     pattern = "NP:{<JJ>?<NN|NNP|NNS|NNPS>+<JJ>?}"
 
     regex_parser = RegexpParser(pattern)
@@ -309,6 +326,38 @@ def chunking(tokens, operator_words):
     chunked_tokens = joined_tokens.split(" ")
 
     return chunks, chunked_tokens
+
+
+def named_entities(sentence):
+    """Link to list of entities: https://stackoverflow.com/questions/59319207/ner-entity-recognition-country-filter
+    :param processed_sentence - user query
+    :return:
+        - sentence - modified sentence (chunking named entities)
+        - entity map - types of entities detected mapped to the set of words/phrases in sentence
+        - names - list of names and type of name (geo location, person names, organization, etc.)"""
+    processed_sentence = spacy_model(sentence)
+    entity_map = dict()
+
+    for ent in processed_sentence.ents:
+        if ent.label_ in entity_map:
+            entity_map[ent.label_].add(ent.text)
+        else:
+            entity_map[ent.label_] = {ent.text}
+
+    names_tags = ["PERSON", "LOC", "ORG", "FAC", "GPE", "WORK_OF_ART", "LANGUAGE"]
+    # create a set containing list of phrases that are names to avoid modifications (lemmed/autocorrect)
+    name_map = dict()
+    for label in names_tags:
+        if label in entity_map:
+            for name in entity_map[label]:
+                name_phrase = name.replace(" ", "_")
+                name_map[name_phrase] = label
+                sentence = sentence.replace(name, name_phrase)
+
+    # print(entity_map)
+    # print("names", name_map)
+    # print("Modified sentence", processed_sentence)
+    return sentence, entity_map, name_map
 
 
 def filter_sentence(tokens, operator_words):
@@ -336,20 +385,17 @@ def filter_sentence(tokens, operator_words):
 
 def map_sentence(sentence, words):
     """Map keywords from sentence to word in the list words"""
-    # Initialize spell checker and word2vec
-    # speller = Speller()
-    model = get_word2vec()
 
-    corrector = jamspell.TSpellCorrector()
-    corrector.LoadLangModel('en.bin')
+    # get sentence with chunked named entities
+    modified_sentence, entity_map, name_map = named_entities(sentence)
+    sentence = modified_sentence
+    sentence = preprocess(sentence)
 
     # Preprocess
     # stemmed = stem_sent(sentence)
-    lemmed = lem_sent(sentence)
-    # spell check lemmatized sentence
-    # spell_check = speller(lemmed)
-    spell_check = corrector.FixFragment(lemmed)
-    all_tokens = nltk.word_tokenize(spell_check)
+    lemmed = lem_sent(sentence, name_map)
+
+    all_tokens = spellcheck(lemmed, name_map)
 
     # mapped operators
     word_operator_map, remaining_tokens = mapped_operators(all_tokens)
@@ -358,7 +404,7 @@ def map_sentence(sentence, words):
     all_tokens = remaining_tokens
 
     # chunking tokens
-    chunks, chunked_tokens = chunking(all_tokens, operators_words)
+    chunks, chunked_tokens = chunking(all_tokens, operators_words, name_map)
 
     # filter stopwords, number
     filtered_sentence = filter_sentence(chunked_tokens, operators_words)
@@ -368,7 +414,7 @@ def map_sentence(sentence, words):
     mapped_literal_chunks = {key: val for key, val in chunks.items() if key in literal_mapped}
 
     # map remaining tokens using word2vec and wordnet
-    avg_mapped = avg_map_word(remaining_tokens, words, model)
+    avg_mapped = avg_map_word(remaining_tokens, words, name_map)
     mapped_chunks = {key: val for key, val in chunks.items() if key in avg_mapped}
 
     joined_tokens = " ".join(all_tokens)
@@ -436,16 +482,19 @@ def mapped_types(mapped_query, metadata):
 
 
 def main():
-    speller = Speller()
-    model = get_word2vec()
-    query = ["Average spending of customers in Tokyo Japan",
-             "Average spending of customers in Hanoi Vietnam",
-             "Average spending of customers in NewYork America",
-             "Average spending of customers in NewYork US",
+    query = ["Average spending of customers in Tokyo, Japan",
+             "Average spending of customers in Hanoi, Vietnam",
+             "Average spending of customers in New York, America",
              "Average spending of customers before last November",
-             "Most profit from production company with sale between 20 and 50",
-             "standard deviations of past year",
-             "list all id",
+             "How much the customer Eric has spent in the last purchase",
+             "Least profit from production company with sale between $20 million and $50 million",
+             "Most profit from animation company that is not Disney from 2012 to 2020",
+             "Least profit from animation company with income from $20 million to $50 million",
+             "Most profit from animation company with income from $20 million - $50 million",
+             "Movies that have higher profit than Frozen, Moana and Beauty and the Beast",
+             "standard deviations of sale last quarter",
+             "Show 10 cheapest products available",
+             "show geo map of customers by country",
              "how many patients are over 50 years old",
              "count patients who have insurance and over 50 years old",
              "numbers of patients who have insurance and over 50 years old"]
@@ -464,7 +513,7 @@ def main():
         # print(">> Filtered: ", filtered)
         # print(">> Operators: \n", operators)
         # print(">> Chunks (tokens with compound nouns): \n", chunks)
-        # print(">> Mapped average of wordnet and word2vec: \n", avg_mapped)
+        print(">> Mapped average of wordnet and word2vec: \n", avg_mapped)
         print()
 
 
