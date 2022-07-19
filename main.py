@@ -316,7 +316,7 @@ def chunking(tokens, operator_words, name_chunk):
     special_phrases = ['year old']
 
     # filter out name chunk, replace with a random filler word (by) to avoid chunking 2 consecutive nouns
-    chunking_tokens = [token if token not in name_chunk else "by" for token in tokens ]
+    chunking_tokens = [token if token not in name_chunk else "by" for token in tokens]
 
     token_tag = pos_tag(chunking_tokens)
     # pattern = "NP:{<JJ>?<NN|NNP|NNS|NNPS>+<JJ>?}"
@@ -376,6 +376,17 @@ def named_entities(sentence):
                 name_map[name_phrase] = label
                 sentence = sentence.replace(name, name_phrase)
 
+    graph_names = ["Table", "Pivot Table", "KPI Metric", "Metric Sheets", "Line Chart", "Area Chart",
+                   "Column Chart", "Bar Chart", "Combination Chart", "Pie Chart", "Donut Chart", "Scatter Chart"
+        , "Bubble Chart", "Retention Heatmap", "Geo Map", "Point Map", "Heatmap", "Filled Map", "Conversion Funnel"
+        , "Radar Chart", "Word Cloud", "Gauge Chart", "Pyramid Chart"]
+
+    for graph in graph_names:
+        if re.search(graph, sentence, flags=re.IGNORECASE):
+            name_phrase = graph.replace(" ", "_")
+            sentence = re.sub(graph, name_phrase, sentence, flags=re.IGNORECASE)
+            name_map[name_phrase] = "GRAPH"
+
     amount_tag = ["PERCENT", "QUANTITY", "MONEY"]
     for label in amount_tag:
         if label in entity_map:
@@ -426,8 +437,6 @@ def map_sentence(sentence, words):
     lemmed = lem_sent(sentence, name_map)
 
     all_tokens = spellcheck(lemmed, name_map)
-
-    # print("All tokens ", all_tokens)
 
     # mapped operators
     word_operator_map, remaining_tokens = mapped_operators(all_tokens)
@@ -546,7 +555,7 @@ def main():
         # print(">> Filtered: ", filtered)
         # print(">> Operators: \n", operators)
         # print(">> Chunks (tokens with compound nouns): \n", chunks)
-        print(">> Mapped average of wordnet and word2vec: \n", avg_mapped)
+        # print(">> Mapped average of wordnet and word2vec: \n", avg_mapped)
         print()
 
 
