@@ -84,7 +84,6 @@ def spellcheck(sentence, name_chunks):
             spell_checked_query.append(spell_checked.popleft())
         else:
             spell_checked_query.append(word)
-
     return spell_checked_query
 
 
@@ -145,8 +144,8 @@ def avg_map_word(words, internal_keywords, name_list):
                 highest_similarity = avg_simi
                 mapped = keyword
 
-        # benchmark: only map if similarity is higher than 0.11
-        if highest_similarity < 0.11:
+        # benchmark: only map if similarity is higher than 0.25
+        if highest_similarity < 0.25:
             mapped, highest_similarity = None, 0
         return mapped, highest_similarity
 
@@ -196,7 +195,6 @@ def mapped_operators(tokens):
     # list of operators that can be mapped using word2vec and wordnet
 
     operators_map = dict()
-
     joined_token = " ".join(tokens)
 
     # chunk range operator
@@ -204,8 +202,8 @@ def mapped_operators(tokens):
         'between \S* and \S*',
         'from \S* to \S*',
         'from \S* - \S*',
-        'between\S*and\S*',
-        '\S*to\S*',
+        'between_\S*and_\S*',
+        '\S*_to_\S*',
     ]
     for regex in range_operator_chunk:
         matched_phrases = re.findall(regex, joined_token)
@@ -312,7 +310,6 @@ def chunking(tokens, operator_words, name_chunk):
 
     # filter out operator words, replace with a random filler word (by) to avoid chunking 2 consecutive nouns
     tokens = [token if token not in operator_words else "by" for token in tokens]
-
     special_phrases = ['year old']
 
     # filter out name chunk, replace with a random filler word (by) to avoid chunking 2 consecutive nouns
@@ -408,7 +405,6 @@ def filter_sentence(tokens, operator_words):
     stop_words = set(stopwords.words('english'))
     # get list of token and its tags
     token_tag_map = pos_tagging(tokens)
-
     filtered_sentence = []
 
     # filter out operator words and numeric values
@@ -435,7 +431,6 @@ def map_sentence(sentence, words):
     # Preprocess
     # stemmed = stem_sent(sentence)
     lemmed = lem_sent(sentence, name_map)
-
     all_tokens = spellcheck(lemmed, name_map)
 
     # mapped operators
@@ -443,7 +438,6 @@ def map_sentence(sentence, words):
     operators_words = set(word_operator_map.keys())
 
     all_tokens = remaining_tokens
-
     # chunking tokens
     chunks, chunked_tokens = chunking(all_tokens, operators_words, name_map)
     # print("chunked sentence", chunked_tokens)
@@ -524,24 +518,16 @@ def mapped_types(mapped_query, metadata):
 
 
 def main():
-    query = ["Average spending of customers in Tokyo, Japan",
-             "Average spending of customers in Hanoi, Vietnam",
-             "Average spending of customers in New York, America",
+    query = ["Average spending of customers in Hanoi, Vietnam",
              "Average spending of customers before last November",
-             "How much the customer Eric has spent in the last purchase",
-             "Least profit from production company with sale between $20 million and $50 million",
              "Most profit from animation company that is not Disney from 2012 to 2020",
-             "Least profit from animation company with income from $20 million to $50 million",
-             "Most profit from animation company with income from $20 million - $50 million",
+             "Most profit from animation company with gross profit from $20 million - $50 million",
              "Movies that have higher profit than Frozen, Moana and Beauty and the Beast",
              "standard deviations of sale last quarter",
-             "Show 10 cheapest products available",
              "show geo map of customers by country",
-             "how many patients are over 50 years old",
-             "count the number of patients who have insurance and over 50 years old",
-             "numbers of patients who have insurance and over 50 years old"]
+             "numbers of patients who is from New York and over 50 years old"]
 
-    sample = ['sale', 'country', 'client', 'age', 'insurance', 'production_company', 'date', 'city', "movie"]
+    sample = ['sale', 'country', 'client', 'age', 'production_company', 'date', 'city', "movie"]
 
     # print(model.similarity("years-old", "age"))
     # mapped = [model.most_similar_to_given(x, sample) for x in filtered_sentence]
