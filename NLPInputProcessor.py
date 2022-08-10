@@ -38,7 +38,6 @@ FILTER = {
     "between": {"between"},
     "and": {"and"},
     "or": {"or"},
-    "group_by": {"group_by", "each", "by", "group"}
     }
 AGGREGATORS = {
     "mean": {"mean", "average"},
@@ -50,7 +49,8 @@ AGGREGATORS = {
     "stdev": {"stdev"},
     "stdevp": {"stdevp"},
     "var": {"var"},
-    "varp": {"varp"}
+    "varp": {"varp"},
+    "group_by": {"group_by", "each", "by", "group"}
 }
 
 OPERATORS_AGGREGATORS = {}
@@ -176,7 +176,6 @@ class NLPInputProcessor:
                 mapped_query.append((token, "graph"))
                 token_to_map[token] = (token, "graph")
             else:
-                # mapped_query.append(token)
                 mapped_query.append((token, "value"))
                 token_to_map[token] = (token, "value")
 

@@ -17,9 +17,9 @@ mapped_types = {"filter", "aggregator", "field", "value", "graph"}
 
 RANGE_CHUNK = [
     'between_(\S*)_and_(\S*)',
+    '(\S*)_to_(\S*)',
     'from_(\S*)_to_(\S*)',
     'from_(\S*)_-_(\S*)',
-    '(\S*)_to_(\S*)',
 ]
 
 
@@ -29,38 +29,57 @@ class ExploreStructure:
         self.mapped_list = mapped_list
         self.metadata = metadata_struct
         self.clause_order = deque()
+        self.curr_dimension = None
+
         self.explore_struct = {
             "dimensions": [],
             "measures": [],
             "filters": []
         }
+        self.last_table = None
         self.last_field = None
 
         for (mapped, mapped_type) in self.mapped_list:
             if mapped_type == "field":
-                dimension_clause = GenerateDimensionClause()
-                dimension_clause.add_field(mapped)
-                # self.explore_struct["dimensions"].append(dimension_clause.generated_clause)
-                self.last_field = mapped
+                self.update_clause_status()
+                if mapped in metadata_struct:
+                    # if self.curr_dimension is not None and self.curr_dimension.is_completed():
+                    #     self.explore_struct["dimensions"].append(self.curr_dimension.generated_clause)
+                    #     self.curr_dimension = None
+                    self.last_table = mapped
+                else:
+                    self.last_field = mapped
 
+                dimension_clause = GenerateDimensionClause(self.metadata) if self.curr_dimension is None else self.curr_dimension
+                dimension_clause.add_field(mapped)
+                self.curr_dimension = dimension_clause
+
+                if self.curr_dimension is not None and self.curr_dimension.is_completed():
+                    self.explore_struct["dimensions"].append(self.curr_dimension.generated_clause)
+                    self.curr_dimension = None
+
+                self.last_field = mapped
                 if len(self.clause_order) > 0:
                     self.clause_order[0].add_field(mapped)
                 else:
                     #default clause is filter
-                    filter_clause = GenerateFilterClause()
+                    filter_clause = GenerateFilterClause(self.metadata)
                     filter_clause.add_field(mapped)
                     self.clause_order.append(filter_clause)
 
             elif mapped_type == "aggregator":
+                self.update_clause_status()
                 if len(self.clause_order) > 0:
                     if type(self.clause_order[0]) == GenerateMeasureClause:
                         self.clause_order[0].add_aggregator(mapped)
                 else:
-                    measure_clause = GenerateMeasureClause()
+                    measure_clause = GenerateMeasureClause(self.metadata)
                     measure_clause.add_aggregation(mapped)
                     self.clause_order.append(measure_clause)
 
             elif mapped_type == "filter":
+                # self.update_clause_status()
+
                 extract_value = None
                 if "_" in mapped:
                     extract_value = self.extract_from_chunk(mapped)
@@ -76,7 +95,7 @@ class ExploreStructure:
                         if mapped == "and" or mapped == "or":  # if filter is a connect word -> no value
                             self.clause_order[0].add_value(' ')
                 else:
-                    filter_clause = GenerateFilterClause()
+                    filter_clause = GenerateFilterClause(self.metadata)
                     if extract_value is not None:
                         filter_clause.add_operator("between")
                         filter_clause.add_value(extract_value)
@@ -87,21 +106,32 @@ class ExploreStructure:
                         filter_clause.add_value(' ')
                     self.clause_order.append(filter_clause)
 
+                self.update_clause_status()
+
             elif mapped_type == "value":
                 if len(self.clause_order) > 0:
+                    self.clause_order[0].add_field(self.last_field)
+                    self.clause_order[0].add_field(self.last_table)
                     self.clause_order[0].add_value(mapped)
 
             elif mapped_type == "graph":
                 self.explore_struct["visualization"] = mapped
 
-            self.update_clause_status()
+        if self.curr_dimension is not None:
+            self.explore_struct["dimensions"].append(self.curr_dimension.generated_clause)
+            self.curr_dimension = None
+        # update clause status at end of loop
+        self.update_clause_status()
 
     def extract_from_chunk(self, phrase):
         # p = re.compile('name (.*?) is valid')
         found_value = None
         for pattern in RANGE_CHUNK:
             p = re.compile(pattern)
-            found_value = p.findall(phrase)
+            found_values = p.findall(phrase)
+            if len(found_values)>0:
+                found_value = found_values[0]
+
         return found_value
 
     def update_clause_status(self):
@@ -116,8 +146,9 @@ class ExploreStructure:
 
 
 class GenerateDimensionClause:
-    def __init__(self):
+    def __init__(self, metadata:dict):
         self.generated_clause = copy.deepcopy(DIMENSION_TEMPLATE)
+        self.metadata = metadata
 
     def is_completed(self):
         completed = True
@@ -126,13 +157,25 @@ class GenerateDimensionClause:
             completed = False
         return completed
 
-    def add_field(self, field):
-        self.generated_clause["table_name"] = field
-        self.generated_clause["field_name"].append(field)
+    # def add_table(self, table):
+    #     self.generated_clause["table_name"] = table
 
+    def add_field(self, field):
+        # def get_table_name(field_name):
+        #     match_table = []
+        #     for key, val in self.metadata.items():
+        #         if field_name in val:
+        #             match_table.append(key)
+        #     return match_table
+
+        if field in self.metadata:  # if mapped is a key -> it's a table
+            self.generated_clause["table_name"] = field
+        else:
+            self.generated_clause["field_name"].append(field)
 
 class GenerateMeasureClause:
-    def __init__(self):
+    def __init__(self, metadata):
+        self.metadata = metadata
         self.generated_clause = copy.deepcopy(MEASURE_TEMPLATE)
 
     def is_completed(self):
@@ -146,16 +189,51 @@ class GenerateMeasureClause:
 
         return completed
 
+    # def add_table(self, table):
+    #     self.generated_clause["table_name"] = table
+
     def add_field(self, field):
-        self.generated_clause["table_name"] = field
-        self.generated_clause["field_name"] = field
+        # self.generated_clause["table_name"] = field
+        # self.generated_clause["field_name"] = field
+
+        if field in self.metadata:  # if mapped is a key -> it's a table
+            self.generated_clause["table_name"] = field
+        else:
+            self.generated_clause["field_name"] = field
 
     def add_aggregation(self, aggregation):
         self.generated_clause["aggregation_type"] = aggregation
 
+class AlterGenerateDimensionClause:
+    def __init__(self, metadata):
+        self.metadata = metadata
+        self.table_col_map = dict()
+        self.generated_clause = copy.deepcopy(MEASURE_TEMPLATE)
+
+    def add_field(self, field):
+
+        # self.generated_clause["table_name"] = field
+        # self.generated_clause["field_name"] = field
+        def get_table_name(field_name):
+            match_table = []
+            for key, val in self.metadata.items():
+                if field_name in val:
+                    match_table.append(key)
+            return match_table
+
+        if field in self.metadata:  # if mapped is a key -> it's a table
+            self.table_col_map[field] = []
+        else:
+            self.generated_clause["field_name"] = field
+
+    # def generate_clause(self):
+
+
+
 
 class GenerateFilterClause:
-    def __init__(self):
+    def __init__(self, metadata):
+        self.metadata = metadata
         self.generated_clause = copy.deepcopy(FILTER_TEMPLATE)
         self.last_operator = ""
 
@@ -170,9 +248,19 @@ class GenerateFilterClause:
 
         return completed
 
+    # def add_table(self, table):
+    #     self.generated_clause["table_name"] = table
+
     def add_field(self, field):
-        self.generated_clause["table_name"] = field
-        self.generated_clause["field_name"] = field
+        if field is None:
+            return
+        # self.generated_clause["table_name"] = field
+        # self.generated_clause["field_name"] = field
+        if field in self.metadata:  # if mapped is a key -> it's a table
+            self.generated_clause["table_name"] = field
+        else:
+            self.generated_clause["field_name"] = field
+
 
     def add_operator(self, operator):
         self.generated_clause["operator"].append(operator)
@@ -191,7 +279,11 @@ def main():
              "show geo map of customers by country",
              "numbers of patients who is from New York and over 50 years old"]
 
-    sample = ['sale', 'country', 'client', 'age', 'production_company', 'date', 'city', "movie"]
+    sample = ['sale', 'country', 'client', "name", 'age', 'production_company', 'date', 'city', "movie", "title"]
+    sample_meta = {
+        "client": {"city", "country", "age",  "date", "sale", "name"},
+        "movie": {"title", "production_company", "sale"}
+    }
 
     for sentence in query:
         nlp_processor = NLPInputProcessor(sentence, sample)
@@ -202,7 +294,7 @@ def main():
         print(">> Mapped query: ", mapped_query)
         # print(">> Mapped with tags: ", token_to_tag)
         # print(">> Mapped types: ", mapped_types)
-        explore_struct = ExploreStructure(mapped_query)
+        explore_struct = ExploreStructure(mapped_query, sample_meta)
         print(explore_struct.explore_struct)
         print()
 
