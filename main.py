@@ -16,6 +16,8 @@ import string
 from collections import deque
 import spacy
 import en_core_web_sm
+import dateparser
+from datetime import datetime
 
 spacy_model = en_core_web_sm.load()
 
@@ -166,6 +168,13 @@ def avg_map_word(words, internal_keywords, name_list):
                 avg_map[word] = ('', 0)
     return avg_map
 
+def get_date_range(dates):
+    start_date = dates[0]
+    if len(start_date) == 1:
+        start_range = start_date.date().replace(month=1, day=1)
+    elif len(start_date) == 2:
+        start_date = dates[0].date().replace(day=1)
+
 
 def mapped_operators(tokens):
     """
@@ -197,21 +206,51 @@ def mapped_operators(tokens):
     operators_map = dict()
     joined_token = " ".join(tokens)
 
+    date_range = []
+
+    month_format = {
+        "1": {'1', '01', 'Jan', 'January'},
+
+    }
+
     # chunk range operator
     range_operator_chunk = [
-        'between \S* and \S*',
-        'from \S* to \S*',
-        'from \S* - \S*',
-        'between_\S*and_\S*',
-        '\S*_to_\S*',
+        'between [\s\S]* and [\s\S]*',
+        'from? [^(!from).*]* to [\s\S]*',
+        'from? [^(?!from).*]* - [\s\S]*',
+        'between_[\s\S]*_and_[\s\S]*',
+        'from?_[^(?!from).*]*_to_[\s\S]*',
+        'in [^(!in).*]* .*',
+        'last [^(!last).*]* .*',
+    ]
+
+    check_year_operate = [
+        'from.* \d{4} [^(?!to).*]*',
+        'to.* \d{4}',
+        'between.* \d{4} [^(?!and).*]*',
+        'and.* \d{4}',
     ]
     for regex in range_operator_chunk:
         matched_phrases = re.findall(regex, joined_token)
         for phrase in matched_phrases:
+            print("phrase", phrase)
+            # phrase = " ".join(phrase.split("_"))
+            if len(phrase) != 0:
+                for date_check in check_year_operate:
+                    check_date = re.findall(date_check, phrase)
+                    date_to_check = " ".join(check_date).split(" ")
+                    get_date = " ".join(date_to_check[1:]).strip()
+                    if len(get_date) !=0:
+                        # print(get_date.split(" "))
+                        date_range.append(get_date)
+                        # print(get_date)
+
             replaced_phrase = "_".join(phrase.split(" "))
             joined_token = joined_token.replace(phrase, replaced_phrase)
             # operators_map[replaced_phrase] = "between_range"
             operators_map[replaced_phrase] = replaced_phrase
+
+    print(date_range)
 
     aggregator_chunk = {
         "standard deviation": "stdev",
@@ -521,7 +560,10 @@ def main():
     query = ["Average spending of customers in Hanoi, Vietnam",
              "Average spending of customers before last November",
              "Most profit from animation company that is not Disney from 2012 to 2020",
-             "Most profit from animation company with gross profit from $20 million - $50 million",
+             "Most profit from the studio from August 2020 to September 2021",
+             "Get all the profit from A pharmacy between 2018 and 2020",
+             "Calculate the average age of Male client between 14th Feb 2018 and 7th Jul 2020",
+             "Most profit from animation company with gross profit from $20 million to $50 million",
              "Movies that have higher profit than Frozen, Moana and Beauty and the Beast",
              "standard deviations of sale last quarter",
              "show geo map of customers by country",
