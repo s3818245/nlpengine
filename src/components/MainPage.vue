@@ -15,14 +15,25 @@
         <div class="col-8">
           <div class="row">
             <label for="basic-url" class="form-label">Business Question</label>
-            <div class="input-group mb-3">
-              <input type="text" class="form-control" id="basic-url" placeholder="Ask a question..."
-                aria-describedby="basic-addon3" required v-model="input">
-              <button type="button" class="btn mb-2 mb-md-0 py-3 px-4 btn-quarternary">SEND</button>
-            </div>
-            <vue-suggestion :items="items" v-model="item" :setLabel="setLabel" :itemTemplate="itemTemplate"
-              @changed="inputChange" @selected="itemSelected">
-            </vue-suggestion>
+            <AutoCompleteVue
+              :items="[
+                  'Apple',
+                  'Banana',
+                  'Orange',
+                  'Mango',
+                  'Pear',
+                  'Peach',
+                  'Grape',
+                  'Tangerine',
+                  'Pineapple'
+                ]"
+
+              />
+            <button type="button" class="btn mb-2 mb-md-0 py-3 px-4 btn-quarternary">SEND</button>
+            <br>
+
+            <p>Chosen element: {{ chosen }}</p>
+
           </div>
 
 
@@ -90,18 +101,25 @@ import itemTemplate from './item-template.vue';
 import VueJsonPretty from 'vue-json-pretty';
 import 'vue-json-pretty/lib/styles.css';
 import { format } from 'sql-formatter';
+import AutoCompleteVue from './AutoComplete.vue';
+// import VueSuggestion from 'vue-suggestion';
+// import 'vue-suggestion/dist/vue-suggestion.css';
+// import * from 'vue-simple-suggest'
+import 'vue-simple-suggest/dist/styles.css' 
 
 export default {
 
   name: 'MainPage',
   components: {
     VueJsonPretty,
+    AutoCompleteVue
   },
   props: {
     msg: String
   },
   data() {
     return {
+      chosen: '',
       input: '',
       jsonData: [
         {
@@ -142,6 +160,7 @@ export default {
     }
   },
   methods: {
+
     formatSQL(value) {
       return format(value, {
         language: 'postgresql',
