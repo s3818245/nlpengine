@@ -18,6 +18,7 @@ import spacy
 import en_core_web_sm
 import dateparser
 from datetime import datetime
+import datefinder
 
 spacy_model = en_core_web_sm.load()
 
@@ -40,6 +41,24 @@ def preprocess(sentence):
     sentence = "".join([char for char in sentence if char not in punctuation])
     return sentence
 
+def preprocess_date(sentence):
+    processed_sentence = spacy_model(sentence)
+    extracted_date = list()
+
+    print("spacy")
+    for ent in processed_sentence.ents:
+        if ent.label_ == "DATE":
+            print(ent.text)
+            check_date = dateparser.parse(ent.text)
+            print(check_date)
+            extracted_date.append(ent.text)
+
+    dates = datefinder.find_dates(sentence)
+    print("\ndate finder")
+    for get_date in dates:
+        print("get date finder", get_date)
+
+    return extracted_date
 
 # stemming - Snowball stemmer
 def stem_sent(sentence):
@@ -175,6 +194,43 @@ def get_date_range(dates):
     elif len(start_date) == 2:
         start_date = dates[0].date().replace(day=1)
 
+def check_date_range(phrase):
+    date_range = list()
+
+    month_format = {
+        "Jan": {'1', '01', 'Jan', 'January', 'Jan.'},
+        "Feb": {'2', '02', 'Feb', 'February', 'Feb.'},
+        "Mar": {'3', '03', 'Mar', 'March', 'Mar.'},
+        "Apr": {'4', '04', 'Apr', 'April', 'Apr.'},
+        "May": {'5', '05', 'May'},
+        "Jun": {'6', '06', 'Jun', 'June', 'Jun.'},
+        "Jul": {'7', '07', 'Jul', 'July', 'Jul.'},
+        "Aug": {'8', '08', 'Aug', 'August', 'Aug.'},
+        "Sep": {'9', '09', 'Sep', 'September', 'Sep.'},
+        "Oct": {'10', '10', 'Oct', 'October', 'Oct.'},
+        "Nov": {'11', '11', 'Nov', 'November', 'Nov.'},
+        "Dec": {'12', '12', 'Dec', 'December', 'Dec.'},
+    }
+
+    check_year_operate = [
+        'from.* \d{4} [^(?!to).*]*',
+        'to.* \d{4}',
+        'between.* \d{4} [^(?!and).*]*',
+        'and.* \d{4}',
+    ]
+
+    if len(phrase) != 0:
+        for date_check in check_year_operate:
+            check_date = re.findall(date_check, phrase)
+            # print(check_date)
+            date_to_check = " ".join(check_date).split(" ")
+            get_date = " ".join(date_to_check[1:]).strip()
+            if len(get_date) != 0:
+                print(get_date)
+                # print(get_date.split(" "))
+                date_range.append(get_date)
+                # print(get_date)
+    return date_range
 
 def mapped_operators(tokens):
     """
@@ -206,12 +262,7 @@ def mapped_operators(tokens):
     operators_map = dict()
     joined_token = " ".join(tokens)
 
-    date_range = []
-
-    month_format = {
-        "1": {'1', '01', 'Jan', 'January'},
-
-    }
+    date_range = list()
 
     # chunk range operator
     range_operator_chunk = [
@@ -224,33 +275,18 @@ def mapped_operators(tokens):
         'last [^(!last).*]* .*',
     ]
 
-    check_year_operate = [
-        'from.* \d{4} [^(?!to).*]*',
-        'to.* \d{4}',
-        'between.* \d{4} [^(?!and).*]*',
-        'and.* \d{4}',
-    ]
     for regex in range_operator_chunk:
         matched_phrases = re.findall(regex, joined_token)
         for phrase in matched_phrases:
             print("phrase", phrase)
+            date_range = check_date_range(phrase)
             # phrase = " ".join(phrase.split("_"))
-            if len(phrase) != 0:
-                for date_check in check_year_operate:
-                    check_date = re.findall(date_check, phrase)
-                    date_to_check = " ".join(check_date).split(" ")
-                    get_date = " ".join(date_to_check[1:]).strip()
-                    if len(get_date) !=0:
-                        # print(get_date.split(" "))
-                        date_range.append(get_date)
-                        # print(get_date)
-
             replaced_phrase = "_".join(phrase.split(" "))
             joined_token = joined_token.replace(phrase, replaced_phrase)
             # operators_map[replaced_phrase] = "between_range"
             operators_map[replaced_phrase] = replaced_phrase
 
-    print(date_range)
+    # print(date_range)
 
     aggregator_chunk = {
         "standard deviation": "stdev",
@@ -562,7 +598,7 @@ def main():
              "Most profit from animation company that is not Disney from 2012 to 2020",
              "Most profit from the studio from August 2020 to September 2021",
              "Get all the profit from A pharmacy between 2018 and 2020",
-             "Calculate the average age of Male client between 14th Feb 2018 and 7th Jul 2020",
+             "Calculate the average age of Male client between 14 Feb 2018 and 7 Jul 2020",
              "Most profit from animation company with gross profit from $20 million to $50 million",
              "Movies that have higher profit than Frozen, Moana and Beauty and the Beast",
              "standard deviations of sale last quarter",
@@ -574,6 +610,11 @@ def main():
     # print(model.similarity("years-old", "age"))
     # mapped = [model.most_similar_to_given(x, sample) for x in filtered_sentence]
     for sentence in query:
+        # print(sentence)
+        # dates = preprocess_date(sentence)
+        # for detect_date in dates:
+        #     print(detect_date)
+
         filtered, chunks, avg_mapped, operators, mapped_query = map_sentence(sentence, sample)
 
         print("Sentence: ", sentence)
