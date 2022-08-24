@@ -63,9 +63,7 @@ class Database:
                           ON ccu.constraint_name = tc.constraint_name
                         WHERE constraint_type = 'FOREIGN KEY' AND tc.table_name='""" + table + "';")
             foreign_keys = cur.fetchall()
-            cur.execute("""SELECT tc.constraint_name, tc.table_name, kcu.column_name, 
-                                    ccu.table_name AS foreign_table_name,
-                                    ccu.column_name AS foreign_column_name 
+            cur.execute("""SELECT tc.constraint_name, tc.table_name, kcu.column_name
                                     FROM 
                                     information_schema.table_constraints AS tc 
                                     JOIN information_schema.key_column_usage AS kcu
@@ -98,4 +96,4 @@ class Database:
 
 if __name__ == '__main__':
     new_db = Database("1", "a2_s3802828", "postgres", "localhost", 5432, "postgres", None)
-    print(new_db.flatten_dimension())
+    print(new_db.fetch_metadata())

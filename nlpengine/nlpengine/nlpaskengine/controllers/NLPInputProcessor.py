@@ -14,21 +14,22 @@ import re
 import string
 from collections import deque
 import spacy
-# import en_core_web_sm
+import en_core_web_sm
 
-spacy_model = spacy.load("en_core_web_sm")
+spacy_model = en_core_web_sm.load()
+
+# Uncomment to download nltk packages
 # nltk.download('omw-1.4')
 # nltk.download('wordnet')
 # nltk.download('averaged_perceptron_tagger')
 # nltk.download('maxent_ne_chunker')
 # nltk.download('words')
-# nltk.download('stopwords')
 # nltk.download('punkt')
+
 
 STOPWORDS = set(stopwords.words('english'))
 
-
-OPERATORS = {
+FILTER = {
     "less": {"<", "less", "smaller", "below", "under", "before"},
     "greater": {">", "over", "bigger", "greater", "more", "above", "after", "higher"},
     "not": {"not"},
@@ -36,18 +37,23 @@ OPERATORS = {
     "between": {"between"},
     "and": {"and"},
     "or": {"or"},
+    }
+AGGREGATORS = {
     "mean": {"mean", "average"},
-    "group_by": {"group_by", "each", "by", "group"},
     "min": {"least", "min", "minimum", "smallest", "lowest", "cheapest"},
     "max": {"max", "greatest", "most", "maximum"},
     "median": {"median"},
     "count": {"count"},
-    "list": {"list", "show"},
     "stdev": {"stdev"},
     "stdevp": {"stdevp"},
     "var": {"var"},
-    "varp": {"varp"}
+    "varp": {"varp"},
+    "group_by": {"group_by", "each", "group"}
 }
+
+OPERATORS_AGGREGATORS = {}
+OPERATORS_AGGREGATORS.update(FILTER)
+OPERATORS_AGGREGATORS.update(AGGREGATORS)
 
 RANGE_CHUNK = [
     'between \S* and \S*',
@@ -69,7 +75,7 @@ AGGREGATOR_CHUNK = {
 GRAPH_TYPES = ["Table", "Pivot Table", "KPI Metric", "Metric Sheets", "Line Chart", "Area Chart",
                "Column Chart", "Bar Chart", "Combination Chart", "Pie Chart", "Donut Chart", "Scatter Chart"
     , "Bubble Chart", "Retention Heatmap", "Geo Map", "Point Map", "Heatmap", "Filled Map", "Conversion Funnel"
-    , "Radar Chart", "Word Cloud", "Gauge Chart", "Pyramid Chart"]
+    , "Radar Chart", "Word Cloud", "Gauge Chart", "Pyramid Chart", "List"]
 
 UNCATEGORIZED_PHRASES = ["year old"]
 
@@ -85,15 +91,16 @@ class NLPInputProcessor:
         # preprocess user inputted query
         self.processed_input = self.preprocess(name_chunked_sentence)
 
+        # detect operators in inputted query
+        operator_chunked_sentence, detected_operators = self.operators(self.processed_input)
+        self.detected_operators = detected_operators
+        self.processed_input = operator_chunked_sentence
+
         # lemmatized
         lemmatized = self.lem_sent(name_chunked_sentence)
         # spell check sentence
         spell_checked = self.spellcheck(lemmatized)
 
-        # detect operators in inputted query
-        operator_chunked_sentence, detected_operators = self.operators(spell_checked)
-        self.detected_operators = detected_operators
-        self.processed_input = operator_chunked_sentence
 
     def map_query(self):
         tokens = nltk.word_tokenize(self.processed_input)
@@ -123,22 +130,91 @@ class NLPInputProcessor:
         all_tokens = joined_tokens.split(" ")
         # mapped items in order
         mapped_query = []
+        # dictionary mapping token to mapped word and the tag
+        token_to_map = dict()
+
+        # tag the mapped query
         for token in all_tokens:
-            if token in self.detected_operators:
-                mapped_query.append(self.detected_operators[token])
+            if token == '':
+                continue
+            elif token in self.detected_operators:
+                # mapped_query.append(self.detected_operators[token])
+                # tag token
+                if self.detected_operators[token] in FILTER:
+                    mapped_query.append((self.detected_operators[token], "filter"))
+                    token_to_map[token] = (self.detected_operators[token], "filter")
+                elif self.detected_operators[token] in AGGREGATORS:
+                    mapped_query.append((self.detected_operators[token], "aggregator"))
+                    token_to_map[token] = (self.detected_operators[token], "aggregator")
+                else:
+                    mapped_query.append((self.detected_operators[token], "filter"))
+                    token_to_map[token] = (self.detected_operators[token], "value")
             elif token in literal_mapped:
-                mapped_query.append(literal_mapped[token][0])
-            elif token in avg_mapped and avg_mapped[token] != '':
+                # mapped_query.append(literal_mapped[token][0])
+                mapped_query.append((literal_mapped[token][0], "field"))
+                token_to_map[token] = (literal_mapped[token][0], "field")
+
+            elif token in avg_mapped:
                 # if token is in named entity and was mapped to a column -> keep the name + mapped column
-                mapped_query.append(avg_mapped[token][0])
+                if avg_mapped[token][0] != '' and avg_mapped[token][0] != token:
+                    mapped_query.append((avg_mapped[token][0], "field"))
+                    token_to_map[token] = (avg_mapped[token][0], "field")
+                elif avg_mapped[token][0] != '':
+                    if avg_mapped[token][0] in GRAPH_TYPES:
+                        mapped_query.append((avg_mapped[token][0], "graph"))
+                        token_to_map[token] = (avg_mapped[token][0], "graph ")
+                    else:
+                        mapped_query.append((avg_mapped[token][0], "value"))
+                        token_to_map[token] = (avg_mapped[token][0], "value")
+
                 if token in self.names and token != avg_mapped[token][0]:
-                    mapped_query.append(token)
+                    # mapped_query.append(token)
+                    mapped_query.append(("equals", "filter"))
+                    mapped_query.append((token, "value"))
+                    token_to_map[token] = (avg_mapped[token][0], "value")
             elif token in STOPWORDS:
                 continue
+            elif token.replace("_", " ") in GRAPH_TYPES:
+                # mapped_query.append(token)
+                mapped_query.append((token, "graph"))
+                token_to_map[token] = (token, "graph")
             else:
-                mapped_query.append(token)
+                mapped_query.append((token, "value"))
+                token_to_map[token] = (token, "value")
 
-        return mapped_query
+        return mapped_query, token_to_map
+
+    def mapped_types(self, mapped_query):
+        mapped_stuffs = {
+            "dimensions": [],
+            "measures": [],
+            "filters": [],
+            "visualization": []
+        }
+        fields = set(self.metadata)
+
+        last_added = deque()
+        for token, type in mapped_query:
+            if token in FILTER:
+                mapped_stuffs["filters"].append(token)
+                last_added.append("filters")
+            elif token in AGGREGATORS:
+                mapped_stuffs["measures"].append(token)
+                last_added.append("measures")
+            elif token in fields:
+                if len(last_added) > 0:
+                    last_added_type = last_added.popleft()
+                    mapped_stuffs[last_added_type].append(token)
+                else:
+                    mapped_stuffs["filters"].append(token)
+
+                mapped_stuffs["dimensions"].append(token)
+            elif token.replace("_", " ") in GRAPH_TYPES:
+                mapped_stuffs["visualization"].append(token)
+            else:
+                # if not all 3 then it's filter value
+                mapped_stuffs["filters"].append(token)
+        return mapped_stuffs
 
     def suggestion(self):
         tokens = nltk.word_tokenize(self.processed_input)
@@ -222,16 +298,20 @@ class NLPInputProcessor:
         for aggregator, replacement in AGGREGATOR_CHUNK.items():
             matched_phrases = re.findall(aggregator, sentence)
             for phrase in matched_phrases:
-                sentence = sentence.replace(phrase, replacement)
-                operator_map[replacement] = replacement
+                chunked_phrase = phrase.replace(" ", "_")
+                sentence = sentence.replace(phrase, chunked_phrase)
+                # sentence = sentence.replace(phrase, replacement)
+                # operator_map[replacement] = replacement
+                operator_map[chunked_phrase] = replacement
 
         tokens = sentence.split(" ")
         for word in tokens:
-            for key, val in OPERATORS.items():
+            for key, val in OPERATORS_AGGREGATORS.items():
                 # if word match operator -> add to operators mapping
                 if word in val:
-                    sentence = sentence.replace(word, key)
-                    operator_map[key] = key
+                    # sentence = sentence.replace(word, key)
+                    # operator_map[key] = key
+                    operator_map[word] = key
 
         return sentence, operator_map
 
@@ -390,7 +470,7 @@ class NLPInputProcessor:
             else:
                 # check if token in query match a part of keywords (fuzzy matching)
                 for word in internal_keywords:
-                    if curr_word.find(word) != -1:  # check if token is a substring of an internal keyword
+                    if word.find(curr_word) != -1:  # check if token is a substring of an internal keyword
                         return word
             return None
 
@@ -558,10 +638,13 @@ def main():
 
     for sentence in query:
         nlp_processor = NLPInputProcessor(sentence, sample)
-        mapped_query = nlp_processor.map_query()
+        mapped_query, token_to_tag = nlp_processor.map_query()
+        mapped_types = nlp_processor.mapped_types(mapped_query)
 
         print("Sentence: ", sentence)
         print(">> Mapped query: ", mapped_query)
+        print(">> Mapped with tags: ", token_to_tag)
+        print(">> Mapped types: ", mapped_types)
         print()
 
     # sample_suggestion = ["Aver",
