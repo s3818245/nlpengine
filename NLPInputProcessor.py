@@ -45,12 +45,11 @@ AGGREGATORS = {
     "max": {"max", "greatest", "most", "maximum"},
     "median": {"median"},
     "count": {"count"},
-    "list": {"list", "show"},
     "stdev": {"stdev"},
     "stdevp": {"stdevp"},
     "var": {"var"},
     "varp": {"varp"},
-    "group_by": {"group_by", "each", "by", "group"}
+    "group_by": {"group_by", "each", "group"}
 }
 
 OPERATORS_AGGREGATORS = {}
@@ -77,7 +76,7 @@ AGGREGATOR_CHUNK = {
 GRAPH_TYPES = ["Table", "Pivot Table", "KPI Metric", "Metric Sheets", "Line Chart", "Area Chart",
                "Column Chart", "Bar Chart", "Combination Chart", "Pie Chart", "Donut Chart", "Scatter Chart"
     , "Bubble Chart", "Retention Heatmap", "Geo Map", "Point Map", "Heatmap", "Filled Map", "Conversion Funnel"
-    , "Radar Chart", "Word Cloud", "Gauge Chart", "Pyramid Chart"]
+    , "Radar Chart", "Word Cloud", "Gauge Chart", "Pyramid Chart", "List"]
 
 UNCATEGORIZED_PHRASES = ["year old"]
 
@@ -154,15 +153,19 @@ class NLPInputProcessor:
                 # mapped_query.append(literal_mapped[token][0])
                 mapped_query.append((literal_mapped[token][0], "field"))
                 token_to_map[token] = (literal_mapped[token][0], "field")
+
             elif token in avg_mapped:
                 # if token is in named entity and was mapped to a column -> keep the name + mapped column
                 if avg_mapped[token][0] != '' and avg_mapped[token][0] != token:
-                    # mapped_query.append(avg_mapped[token][0])
                     mapped_query.append((avg_mapped[token][0], "field"))
                     token_to_map[token] = (avg_mapped[token][0], "field")
                 elif avg_mapped[token][0] != '':
-                    mapped_query.append((avg_mapped[token][0], "value"))
-                    token_to_map[token] = (avg_mapped[token][0], "value")
+                    if avg_mapped[token][0] in GRAPH_TYPES:
+                        mapped_query.append((avg_mapped[token][0], "graph"))
+                        token_to_map[token] = (avg_mapped[token][0], "graph ")
+                    else:
+                        mapped_query.append((avg_mapped[token][0], "value"))
+                        token_to_map[token] = (avg_mapped[token][0], "value")
 
                 if token in self.names and token != avg_mapped[token][0]:
                     # mapped_query.append(token)
