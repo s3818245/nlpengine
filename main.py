@@ -19,6 +19,7 @@ import en_core_web_sm
 import dateparser
 from datetime import datetime
 import datefinder
+from dateutil import parser
 
 spacy_model = en_core_web_sm.load()
 
@@ -188,31 +189,39 @@ def avg_map_word(words, internal_keywords, name_list):
     return avg_map
 
 def get_date_range(dates):
-    start_date = dates[0]
-    if len(start_date) == 1:
-        start_range = start_date.date().replace(month=1, day=1)
-    elif len(start_date) == 2:
-        start_date = dates[0].date().replace(day=1)
+    date_range = list()
+    for date in dates:
+        print(date)
+        get_date = dateparser.parse(date)
+        if get_date is not None:
+            date_range.append(get_date)
+    return date_range
 
 def check_date_range(phrase):
     date_range = list()
+    # month_format = {
+    #     "Jan": {'1', '01', 'Jan', 'January', 'Jan.'},
+    #     "Feb": {'2', '02', 'Feb', 'February', 'Feb.'},
+    #     "Mar": {'3', '03', 'Mar', 'March', 'Mar.'},
+    #     "Apr": {'4', '04', 'Apr', 'April', 'Apr.'},
+    #     "May": {'5', '05', 'May'},
+    #     "Jun": {'6', '06', 'Jun', 'June', 'Jun.'},
+    #     "Jul": {'7', '07', 'Jul', 'July', 'Jul.'},
+    #     "Aug": {'8', '08', 'Aug', 'August', 'Aug.'},
+    #     "Sep": {'9', '09', 'Sep', 'September', 'Sep.'},
+    #     "Oct": {'10', '10', 'Oct', 'October', 'Oct.'},
+    #     "Nov": {'11', '11', 'Nov', 'November', 'Nov.'},
+    #     "Dec": {'12', '12', 'Dec', 'December', 'Dec.'},
+    # }
 
-    month_format = {
-        "Jan": {'1', '01', 'Jan', 'January', 'Jan.'},
-        "Feb": {'2', '02', 'Feb', 'February', 'Feb.'},
-        "Mar": {'3', '03', 'Mar', 'March', 'Mar.'},
-        "Apr": {'4', '04', 'Apr', 'April', 'Apr.'},
-        "May": {'5', '05', 'May'},
-        "Jun": {'6', '06', 'Jun', 'June', 'Jun.'},
-        "Jul": {'7', '07', 'Jul', 'July', 'Jul.'},
-        "Aug": {'8', '08', 'Aug', 'August', 'Aug.'},
-        "Sep": {'9', '09', 'Sep', 'September', 'Sep.'},
-        "Oct": {'10', '10', 'Oct', 'October', 'Oct.'},
-        "Nov": {'11', '11', 'Nov', 'November', 'Nov.'},
-        "Dec": {'12', '12', 'Dec', 'December', 'Dec.'},
-    }
+    dates = datefinder.find_dates(phrase)
+    print("\ndate finder")
+    for get_date in dates:
+        print("get date finder", get_date)
 
-    check_year_operate = [
+    print("not date finder")
+
+    check_range_operate = [
         'from.* \d{4} [^(?!to).*]*',
         'to.* \d{4}',
         'between.* \d{4} [^(?!and).*]*',
@@ -220,16 +229,24 @@ def check_date_range(phrase):
     ]
 
     if len(phrase) != 0:
-        for date_check in check_year_operate:
+        for date_check in check_range_operate:
             check_date = re.findall(date_check, phrase)
             # print(check_date)
             date_to_check = " ".join(check_date).split(" ")
             get_date = " ".join(date_to_check[1:]).strip()
+            check_get_date = get_date.split(" ")
             if len(get_date) != 0:
-                print(get_date)
-                # print(get_date.split(" "))
-                date_range.append(get_date)
                 # print(get_date)
+                # date_range.append(get_date)
+                date_input = parser.parse(get_date)
+                if date_input is not None:
+                    if len(check_get_date) == 1:
+                        date_input = date_input.date().replace(month=1, day=1)
+                        print(date_input)
+                        date_range.append(date_input)
+                    else:
+                        print(date_input)
+                        date_range.append(date_input)
     return date_range
 
 def mapped_operators(tokens):
@@ -271,8 +288,8 @@ def mapped_operators(tokens):
         'from? [^(?!from).*]* - [\s\S]*',
         'between_[\s\S]*_and_[\s\S]*',
         'from?_[^(?!from).*]*_to_[\s\S]*',
-        'in [^(!in).*]* .*',
-        'last [^(!last).*]* .*',
+        'in [\s\S]*',
+        'last [\s\S]*',
     ]
 
     for regex in range_operator_chunk:
@@ -599,6 +616,7 @@ def main():
              "Most profit from the studio from August 2020 to September 2021",
              "Get all the profit from A pharmacy between 2018 and 2020",
              "Calculate the average age of Male client between 14 Feb 2018 and 7 Jul 2020",
+             "Find the average value of profit make from 17 Jan to 21 Aug",
              "Most profit from animation company with gross profit from $20 million to $50 million",
              "Movies that have higher profit than Frozen, Moana and Beauty and the Beast",
              "standard deviations of sale last quarter",
