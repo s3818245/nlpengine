@@ -33,7 +33,6 @@ spacy_model = en_core_web_sm.load()
 # define root path to current directory
 root = os.getcwd()
 
-
 def preprocess(sentence):
     """remove punctuations, extra spaces"""
     sentence = sentence.strip()
@@ -44,22 +43,30 @@ def preprocess(sentence):
 
 def preprocess_date(sentence):
     processed_sentence = spacy_model(sentence)
-    extracted_date = list()
-
+    date_input = list()
     print("spacy")
+
     for ent in processed_sentence.ents:
         if ent.label_ == "DATE":
             print(ent.text)
             check_date = dateparser.parse(ent.text)
             print(check_date)
-            extracted_date.append(ent.text)
+            if check_date is not None:
+                date_input.append(ent.text)
 
     dates = datefinder.find_dates(sentence)
     print("\ndate finder")
     for get_date in dates:
         print("get date finder", get_date)
+        if get_date in date_input:
+            print(get_date, "Already exist")
+        else:
+            date_input.append(get_date)
+            print(get_date, "new date")
+            # print(date_match, " more date")
+            # date_input.append(get_date)
 
-    return extracted_date
+    return date_input
 
 # stemming - Snowball stemmer
 def stem_sent(sentence):
@@ -197,8 +204,8 @@ def get_date_range(dates):
             date_range.append(get_date)
     return date_range
 
-def check_date_range(phrase):
-    date_range = list()
+def check_date_range(phrase, date_list):
+    # date_range = list()
     # month_format = {
     #     "Jan": {'1', '01', 'Jan', 'January', 'Jan.'},
     #     "Feb": {'2', '02', 'Feb', 'February', 'Feb.'},
@@ -218,6 +225,9 @@ def check_date_range(phrase):
     print("\ndate finder")
     for get_date in dates:
         print("get date finder", get_date)
+        if get_date not in date_list:
+            date_list.append(get_date)
+
 
     print("not date finder")
 
@@ -242,12 +252,15 @@ def check_date_range(phrase):
                 if date_input is not None:
                     if len(check_get_date) == 1:
                         date_input = date_input.date().replace(month=1, day=1)
+                        if get_date not in date_list:
+                            date_list.append(get_date)
                         print(date_input)
-                        date_range.append(date_input)
+                    elif len(check_get_date) == 2:
+                        match_year_regex = '\d{4}'
+                        if
                     else:
                         print(date_input)
-                        date_range.append(date_input)
-    return date_range
+    return date_list
 
 def mapped_operators(tokens):
     """
@@ -279,7 +292,7 @@ def mapped_operators(tokens):
     operators_map = dict()
     joined_token = " ".join(tokens)
 
-    date_range = list()
+    date_range = preprocess_date(joined_token)
 
     # chunk range operator
     range_operator_chunk = [
@@ -292,11 +305,12 @@ def mapped_operators(tokens):
         'last [\s\S]*',
     ]
 
+    date_range_get = list()
     for regex in range_operator_chunk:
         matched_phrases = re.findall(regex, joined_token)
         for phrase in matched_phrases:
             print("phrase", phrase)
-            date_range = check_date_range(phrase)
+            date_range_get = check_date_range(phrase, date_range)
             # phrase = " ".join(phrase.split("_"))
             replaced_phrase = "_".join(phrase.split(" "))
             joined_token = joined_token.replace(phrase, replaced_phrase)
@@ -325,7 +339,7 @@ def mapped_operators(tokens):
             if word in val:
                 operators_map[word] = key
 
-    return operators_map, tokens
+    return operators_map, tokens, date_range
 
 
 def literal_matching(tokens, internal_keywords):
@@ -526,7 +540,7 @@ def map_sentence(sentence, words):
     all_tokens = spellcheck(lemmed, name_map)
 
     # mapped operators
-    word_operator_map, remaining_tokens = mapped_operators(all_tokens)
+    word_operator_map, remaining_tokens, dates_list = mapped_operators(all_tokens)
     operators_words = set(word_operator_map.keys())
 
     all_tokens = remaining_tokens
@@ -572,7 +586,7 @@ def map_sentence(sentence, words):
         else:
             mapped_query.append(token)
 
-    return filtered_sentence, chunks, avg_mapped, operators_words, mapped_query
+    return filtered_sentence, chunks, avg_mapped, operators_words, mapped_query, dates_list
 
 
 def mapped_types(mapped_query, metadata):
@@ -633,7 +647,10 @@ def main():
         # for detect_date in dates:
         #     print(detect_date)
 
-        filtered, chunks, avg_mapped, operators, mapped_query = map_sentence(sentence, sample)
+        filtered, chunks, avg_mapped, operators, mapped_query, dates_list = map_sentence(sentence, sample)
+
+        for date in dates_list:
+            print("date in list: ", date)
 
         print("Sentence: ", sentence)
         print(">> Mapped query: ", mapped_query)
