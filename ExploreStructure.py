@@ -110,7 +110,7 @@ class ExploreStructure:
                 if self.curr_filter is None:
                     self.curr_filter = GenerateFilterClause(self.metadata)
                     if self.last_filter is None:
-                        self.curr_filter.add_operator("equals")
+                        self.curr_filter.add_operator("equal")
                     else:
                         self.curr_filter.add_operator(self.last_filter)
 
@@ -276,13 +276,15 @@ def main():
              "standard deviations of sale last quarter",
              "show geo map of customers group by country",
              "numbers of patients who is from New York and age over 50",
-             "products from order purchased by client Quingzz"]
+             "products from order purchased by client Quingzz",
+             "list all products where brand equals toyota"]
 
     sample = ['sale', 'country', 'client', "name", 'age', 'production_company', 'date', 'city', "movie", "title"]
     sample_meta = {
         "client": {"city", "country", "age", "date", "sale", "name"},
         "order": {"product", "client"},
-        "movie": {"title", "production_company", "profit"}
+        "movie": {"title", "production_company", "profit"},
+        "product": {"brand", "company", "description", "model"}
     }
 
     for sentence in query:
@@ -292,7 +294,7 @@ def main():
 
         print("Sentence: ", sentence)
         print(">> Mapped query: ", mapped_query)
-        # print(">> Mapped with tags: ", token_to_tag)
+        print(">> Mapped with tags: ", token_to_tag)
         # print(">> Mapped types: ", mapped_types)
         explore_struct = ExploreStructure(mapped_query, sample_meta)
         print(explore_struct.explore_struct)
