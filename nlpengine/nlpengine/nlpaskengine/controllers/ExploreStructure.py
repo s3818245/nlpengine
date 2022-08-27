@@ -1,4 +1,4 @@
-from NLPInputProcessor import NLPInputProcessor
+from .NLPInputProcessor import NLPInputProcessor
 from collections import deque
 import re
 import copy

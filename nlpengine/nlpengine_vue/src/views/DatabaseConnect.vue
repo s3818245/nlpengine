@@ -1,93 +1,171 @@
 <template>
-  <div class="databaseConnect">
+  <div class="hello">
     <h1 class="text-center">Welcome to Holistics' NLP Engine</h1>
-    <br/>
-    <br/>
-    <br/>
-    <h4 class="text-center">Explore your own database through data visualization</h4>
-    <br/>
+    <br />
+    <br />
+    <br />
+    <h4 class="text-center">
+      Explore your own database through data visualization
+    </h4>
+    <br />
 
     <div class="d-flex justify-content-center">
-        <button type="button" class="btn btn-primary text-center" data-bs-toggle="modal" data-bs-target="#exampleModal">
+      <!-- Button trigger modal -->
+      <button
+        type="button"
+        class="btn btn-primary text-center"
+        data-bs-toggle="modal"
+        data-bs-target="#exampleModal"
+      >
         Connect to Database
-        </button>
+      </button>
 
-        <div class="modal fade" id="exampleModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
-            <div class="modal-dialog modal-dialog-centered">
-                <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="exampleModalLabel">New Data Source</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="container">
-                        <div class="row">
-                            <div class="col">
-                                <label for="basic-url" class="form-label">Display Name</label>
-                                <div class="input-group mb-3">
-                                    <input type="text" class="form-control" id="basic-url" aria-describedby="basic-addon3">
-                                </div>
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-6">
-                                <label for="basic-url" class="form-label">Host</label>
-                                <div class="input-group mb-3">
-                                    <input type="text" class="form-control" id="basic-url" aria-describedby="basic-addon3">
-                                </div>
-                            </div>
-                            <div class="col-6">
-                                <label for="basic-url" class="form-label">Post</label>
-                                <div class="input-group mb-3">
-                                    <input type="text" class="form-control" id="basic-url" aria-describedby="basic-addon3">
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="row">
-                            <div class="col">
-                                <label for="basic-url" class="form-label">Database Name</label>
-                                <div class="input-group mb-3">
-                                    <input type="text" class="form-control" id="basic-url" aria-describedby="basic-addon3">
-                                </div>
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-6">
-                                <label for="basic-url" class="form-label">Username</label>
-                                <div class="input-group mb-3">
-                                    <input type="text" class="form-control" id="basic-url" aria-describedby="basic-addon3">
-                                </div>
-                            </div>
-                            <div class="col-6">
-                                <label for="basic-url" class="form-label">Password</label>
-                                <div class="input-group mb-3">
-                                    <input type="text" class="form-control" id="basic-url" aria-describedby="basic-addon3">
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-primary">Test Connection</button>
-                </div>
-                </div>
+      <!-- Modal -->
+      <div
+        class="modal fade"
+        id="exampleModal"
+        tabindex="-1"
+        aria-labelledby="exampleModalLabel"
+        aria-hidden="true"
+      >
+        <div class="modal-dialog modal-dialog-centered">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title" id="exampleModalLabel">
+                New Data Source
+              </h5>
+              <button
+                type="button"
+                class="btn-close"
+                data-bs-dismiss="modal"
+                aria-label="Close"
+              ></button>
             </div>
-        </div>
-    </div>
-    
+            <div class="modal-body">
+              <div class="container">
+                <div class="row">
+                  <div class="col-6">
+                    <label for="basic-url" class="form-label">Host</label>
+                    <div class="input-group mb-3">
+                      <input
+                        type="text"
+                        class="form-control"
+                        id="basic-url"
+                        aria-describedby="basic-addon3"
+                        v-model="host"
+                      />
+                    </div>
+                  </div>
+                  <div class="col-6">
+                    <label for="basic-url" class="form-label">Port</label>
+                    <div class="input-group mb-3">
+                      <input
+                        type="text"
+                        class="form-control"
+                        id="basic-url"
+                        aria-describedby="basic-addon3"
+                        v-model="port"
+                      />
+                    </div>
+                  </div>
+                </div>
 
-    <br/>
-    <br/>
+                <div class="row">
+                  <div class="col">
+                    <label for="basic-url" class="form-label"
+                      >Database Name</label
+                    >
+                    <div class="input-group mb-3">
+                      <input
+                        type="text"
+                        class="form-control"
+                        id="basic-url"
+                        aria-describedby="basic-addon3"
+                        v-model="name"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="col-6">
+                    <label for="basic-url" class="form-label">Username</label>
+                    <div class="input-group mb-3">
+                      <input
+                        type="text"
+                        class="form-control"
+                        id="basic-url"
+                        aria-describedby="basic-addon3"
+                        v-model="user"
+                      />
+                    </div>
+                  </div>
+                  <div class="col-6">
+                    <label for="basic-url" class="form-label">Password</label>
+                    <div class="input-group mb-3">
+                      <input
+                        type="text"
+                        class="form-control"
+                        id="basic-url"
+                        aria-describedby="basic-addon3"
+                        v-model="password"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-primary" @click="connectDatabase()">CONNECT</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <br />
+    <br />
     <h5 class="text-center">Supported database: PostgreSQL</h5>
-    
   </div>
 </template>
 
 <script>
-    export default {
-        name: 'DatabaseConnect'
-    }
+import axios from "axios";
+export default {
+  name: "DatabaseConnect",
+  data(){
+    return {
+            name: "",
+            host: "",
+            port: "",
+            user: "",
+            failedConnect: false,
+            password: NaN
+        }
+  },
+  methods: {
+    connectDatabase() {
+      axios
+        .get("http://127.0.0.1:8000/nlp/database/", {
+          params: {
+            name: "nlp_demo",
+            type: "postgres",
+            host: "localhost",
+            port: 5432,
+            user: "postgres",
+            password: this.password
+          },
+        })
+        .then((res) => {
+            if (res.data.message == "Success"){
+                window.location.replace("http://localhost:8080/query")
+            } else {
+                this.failedConnect = true
+            }
+        })
+        .catch((error) => console.log(error));
+    },
+  },
+};
 </script>
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->

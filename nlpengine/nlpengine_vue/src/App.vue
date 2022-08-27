@@ -1,7 +1,7 @@
 <template>
   <div id="nav">
-    <router-link to="/">Main</router-link> |
-    <router-link to="/dbconnect">DB</router-link>
+    <!-- <router-link to="/">Main</router-link> |
+    <router-link to="/dbconnect">DB</router-link> -->
   </div>
   <router-view />
 </template>

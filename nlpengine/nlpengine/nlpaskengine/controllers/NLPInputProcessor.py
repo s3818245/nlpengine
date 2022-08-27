@@ -7,6 +7,7 @@ from nltk.corpus import stopwords
 from nltk.corpus import wordnet as wn
 from nltk import pos_tag
 from nltk import RegexpParser
+# from autocorrect import Speller
 import jamspell
 import numpy as np
 import os
@@ -15,6 +16,10 @@ import string
 from collections import deque
 import spacy
 import en_core_web_sm
+from datetime import datetime
+import datefinder
+import dateparser
+from dateutil import parser
 
 spacy_model = en_core_web_sm.load()
 
@@ -55,12 +60,22 @@ OPERATORS_AGGREGATORS = {}
 OPERATORS_AGGREGATORS.update(FILTER)
 OPERATORS_AGGREGATORS.update(AGGREGATORS)
 
+# RANGE_CHUNK = [
+#     'between \S* and \S*',
+#     'from \S* to \S*',
+#     'from \S* - \S*',
+#     'between_\S*and_\S*',
+#     '\S*_to_\S*',
+# ]
+
 RANGE_CHUNK = [
-    'between \S* and \S*',
-    'from \S* to \S*',
-    'from \S* - \S*',
-    'between_\S*and_\S*',
-    '\S*_to_\S*',
+    'between [\s\S]* and [\s\S]*',
+    'from? [^(!from).*]* to [\s\S]*',
+    'from? [^(?!from).*]* - [\s\S]*',
+    'between_[\s\S]*_and_[\s\S]*',
+    'from?_[^(?!from).*]*_to_[\s\S]*',
+    'in [^(!in).*]* [\s\S]*',
+    'last [\s\S]*',
 ]
 
 AGGREGATOR_CHUNK = {
@@ -91,16 +106,16 @@ class NLPInputProcessor:
         # preprocess user inputted query
         self.processed_input = self.preprocess(name_chunked_sentence)
 
-        # detect operators in inputted query
-        operator_chunked_sentence, detected_operators = self.operators(self.processed_input)
-        self.detected_operators = detected_operators
-        self.processed_input = operator_chunked_sentence
-
         # lemmatized
         lemmatized = self.lem_sent(name_chunked_sentence)
         # spell check sentence
         spell_checked = self.spellcheck(lemmatized)
 
+        # detect operators in inputted query
+        operator_chunked_sentence, detected_operators = self.operators(spell_checked)
+        self.detected_operators = detected_operators
+        # print("Detected operators: ", self.detected_operators)
+        self.processed_input = operator_chunked_sentence
 
     def map_query(self):
         tokens = nltk.word_tokenize(self.processed_input)
@@ -111,8 +126,11 @@ class NLPInputProcessor:
         # filter stopwords, number
         filtered_sentence = self.filter_sentence(tokens)
 
+        # print("filtered sentence", filtered_sentence)
+        # print("flattened query", self.metadata)
         # try literal mapping
         literal_mapped, remaining_tokens = self.literal_matching(filtered_sentence)
+        # print("literal mapped value ", literal_mapped)
         mapped_literal_chunks = {key: val for key, val in chunks.items() if key in literal_mapped}
 
         # map remaining tokens using word2vec and wordnet
@@ -153,7 +171,6 @@ class NLPInputProcessor:
                 # mapped_query.append(literal_mapped[token][0])
                 mapped_query.append((literal_mapped[token][0], "field"))
                 token_to_map[token] = (literal_mapped[token][0], "field")
-
             elif token in avg_mapped:
                 # if token is in named entity and was mapped to a column -> keep the name + mapped column
                 if avg_mapped[token][0] != '' and avg_mapped[token][0] != token:
@@ -278,18 +295,114 @@ class NLPInputProcessor:
         sentence = "".join([char for char in sentence if char not in punctuation])
         return sentence
 
+    def preprocess_date(self, sentence):
+        processed_sentence = spacy_model(sentence)
+        date_input = list()
+        print("spacy")
+
+        for ent in processed_sentence.ents:
+            if ent.label_ == "DATE":
+                print(ent.text)
+                date_input.append(ent.text)
+
+        return date_input
+
+    def get_range_month(self, phrase):
+        date_list = list()
+        convert_date = dateparser.parse(phrase)
+        first_date = convert_date.replace(day=1)
+        date_list.append(first_date.strftime('%Y-%m-%d'))
+        next_month = convert_date.replace(day=28) + datetime.timedelta(days=4)
+        last_date = next_month - datetime.timedelta(days=next_month.day)
+        date_list.append(last_date.strftime('%Y-%m-%d'))
+        return date_list
+
+    def get_range_year(self, phrase):
+        date_list = list()
+        convert_date = dateparser.parse(phrase)
+        first_date = convert_date.replace(day=1, month=1)
+        date_list.append(first_date.strftime('%Y-%m-%d'))
+        last_date = convert_date.replace(day=31, month=12)
+        date_list.append(last_date.strftime('%Y-%m-%d'))
+        return date_list
+
+    def check_date_range(self, phrase, date_list):
+        check_range_operate = [
+            'from.* \d{4} [^(?!to).*]*',
+            'to.* \d{4}',
+            'between.* \d{4} [^(?!and).*]*',
+            'and.* \d{4}',
+            'in.* \d{4}',
+            'last.*'
+        ]
+
+        if len(phrase) != 0:
+            for date_check in check_range_operate:
+                check_date = re.findall(date_check, phrase)
+                # print(check_date, "check date")
+                date_to_check = " ".join(check_date).split(" ")
+                get_date = " ".join(date_to_check[1:]).strip()
+                check_get_date = get_date.split(" ")
+                if len(get_date) != 0:
+                    # print(get_date)
+                    # date_range.append(get_date)
+                    date_input = dateparser.parse(get_date)
+                    # print(date_input)
+                    if date_input is not None:
+                        if len(check_get_date) == 1:
+                            date_input = date_input.replace(month=1, day=1)
+                        if date_input not in date_list:
+                            date_list.append(date_input.strftime('%Y-%m-%d'))
+                else:
+                    dates = datefinder.find_dates(phrase)
+                    for date in dates:
+                        if date not in date_list:
+                            date_list.append(date.strftime('%Y-%m-%d'))
+        return date_list
+
     def operators(self, sentence):
         """
             :param query: user query
             :return: map of words to its respective internal operator
         """
         operator_map = dict()
+
+        # get date phrases
+        date_range = self.preprocess_date(sentence)
+        date_range_get = list()
+
+        # check date type
+        if len(date_range) == 1:
+            date_input = date_range[0]
+            date_arr = date_input.split(" ")
+            year_check = '\d{4}'
+            check_year = re.findall(year_check, date_arr[-1])
+            print("check year ", check_year)
+            if date_arr[-1].isdigit():
+                if len(date_arr) == 1:
+                    if check_year:
+                        date_range_get = self.get_range_year(date_input)
+                elif len(date_arr) == 2:
+                    if check_year:
+                        date_range_get = self.get_range_month(date_input)
+                    else:
+                        date = dateparser.parse(date_input)
+                        if date is not None:
+                            date_range_get.append(date)
+
         # chunk range operator
         # chunking phrases
         for regex in RANGE_CHUNK:
             matched_phrases = re.findall(regex, sentence)
             for phrase in matched_phrases:
-                replaced_phrase = "_".join(phrase.split(" "))
+                date_range_get = self.check_date_range(phrase, date_range_get)
+
+                if len(date_range_get) >= 2:
+                    replaced_phrase = "_to_".join(date_range_get)
+                elif len(date_range_get) == 1:
+                    replaced_phrase = date_range_get[0]
+                else:
+                    replaced_phrase = "_".join(phrase.split(" "))
                 sentence = sentence.replace(phrase, replaced_phrase)
                 # operators_map[replaced_phrase] = "between_range"
                 operator_map[replaced_phrase] = replaced_phrase
@@ -488,8 +601,8 @@ class NLPInputProcessor:
                 else:
                     literal_map[token] = [mapped]
                 # remove token in list of tokens to avoid repetitive process
-                if token in tokens:
-                    tokens.remove(token)
+                # if token in tokens:
+                #     tokens.remove(token)
 
             elif '_' in token:
                 # if token is a chunk and not able to map -> map by individual token
@@ -500,9 +613,9 @@ class NLPInputProcessor:
                             literal_map[chunk_token].append(chunk_mapped)
                         else:
                             literal_map[chunk_token] = [chunk_mapped]
-                        if token in tokens:
-                            # remove token in list of tokens being mapped to avoid repetitive process
-                            tokens.remove(token)
+                        # if token in tokens:
+                        #     # remove token in list of tokens being mapped to avoid repetitive process
+                        #     tokens.remove(token)
                     else:
                         # unable to map literally
                         unmapped.append(chunk_token)
@@ -629,6 +742,8 @@ def main():
              "Average spending of customers before last November",
              "Most profit from animation company that is not Disney from 2012 to 2020",
              "Most profit from animation company with gross profit from $20 million - $50 million",
+             "Companies with profit less than 20",
+             "Companies with profit more than 50",
              "Movies that have higher profit than Frozen, Moana and Beauty and the Beast",
              "standard deviations of sale last quarter",
              "show geo map of customers by country",
@@ -642,9 +757,9 @@ def main():
         mapped_types = nlp_processor.mapped_types(mapped_query)
 
         print("Sentence: ", sentence)
-        print(">> Mapped query: ", mapped_query)
+        # print(">> Mapped query: ", mapped_query)
         print(">> Mapped with tags: ", token_to_tag)
-        print(">> Mapped types: ", mapped_types)
+        # print(">> Mapped types: ", mapped_types)
         print()
 
     # sample_suggestion = ["Aver",

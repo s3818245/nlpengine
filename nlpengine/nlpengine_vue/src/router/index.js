@@ -3,12 +3,12 @@ import MainPage from '../views/MainPage.vue'
 
 const routes = [
   {
-    path: '/',
+    path: '/query',
     name: 'MainPage',
     component: () => import('../views/MainPage.vue')
   },
   {
-    path: '/dbconnect',
+    path: '/',
     name: 'DatabaseConnect',
     component: () => import('../views/DatabaseConnect.vue')
   }

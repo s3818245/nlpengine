@@ -1,15 +1,20 @@
+from uuid import UUID
 import psycopg2
+import pandas as pd
+import pandas.io.sql as sqlio
+
 
 
 class Database:
-    def __init__(self, id, db_name, db_type, db_host, db_port, db_user, db_password):
-        self.__id = id
+    def __init__(self, db_name, db_type, db_host, db_port, db_user, db_password):
+        self.__id = UUID(int=0x12345678123456781234567812345678)
         self.__db_name = db_name
         self.__db_type = db_type
         self.__db_host = db_host
         self.__db_port = db_port
         self.__db_user = db_user
         self.__db_password = db_password
+        self.__db_connection = None
         try:
 
             # connect to the PostgreSQL server
@@ -91,6 +96,12 @@ class Database:
             flatten_dimensions.append(key)
             flatten_dimensions = flatten_dimensions + val
         return flatten_dimensions
+
+    def run_query(self, query):
+        # create a cursor
+        dat = sqlio.read_sql_query(query, self.__db_connection)
+        return dat
+
         
 
 

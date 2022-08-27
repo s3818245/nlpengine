@@ -1,14 +1,18 @@
-from NLPInputProcessor import NLPInputProcessor
-from database import Database
-from ExploreStructure import ExploreStructure
+from tokenize import String
+from xxlimited import new
+from .NLPInputProcessor import NLPInputProcessor
+from .database import Database
+from .ExploreStructure import ExploreStructure
 
 class ConvertToSQL:
-    def __init__(self, meta_data):
+    def __init__(self, meta_data, query):
         self.meta_data = meta_data
+        print(meta_data)
+        self.query = query
 
     def base_template(self, dimension):
         select_clause = ""
-        if dimension["field_names"] == ['']:
+        if dimension["field_names"] == [''] or " all " in self.query:
             select_clause += "SELECT *"
         else:
             for i in dimension["field_names"]:
@@ -27,7 +31,7 @@ class ConvertToSQL:
 
     def where_template(self, filters):
         result = ""
-        operators = {"less": "<", "greater": ">", "not": "not", "equal": "="}
+        operators = {"less": "<", "greater": ">", "not": "not", "equal": "=", "equals": "="}
         for i in filters:
             if result == "":
                 result += " WHERE "
@@ -36,9 +40,12 @@ class ConvertToSQL:
                     result += " " + i["operators"][y] + " "
                 elif i["operators"][y] == "between":
                     val1, val2 =i["values"][y]
-                    result += f'{i["table_name"]}.{i["field_name"]} ' + i["operators"][y] + val1 + " and " + val2
+                    result += f'{i["table_name"]}.{i["field_name"]} ' + i["operators"][y] + " " + val1 + " and " + val2
                 else:
-                    result += f'{i["table_name"]}.{i["field_name"]} ' + operators[i["operators"][y]] + " " + i["values"][y]
+                    if i["values"][y].isnumeric() == False:
+                        result += f'{i["table_name"]}.{i["field_name"]} ' + operators[i["operators"][y]] + " '" + i["values"][y] + "'"
+                    else:
+                        result += f'{i["table_name"]}.{i["field_name"]} ' + operators[i["operators"][y]] + " " + i["values"][y]
         return result
 
     def aggregate_template(self, measures):
@@ -52,7 +59,7 @@ class ConvertToSQL:
                     group_by += f', {i["table_name"]}.{i["field_name"]}'
             else:
                 if i["field_name"] == "":
-                    i["field_name"] = self.meta_data[i["table_name"]]["primary_key"][2]
+                    i["field_name"] = self.meta_data[i["table_name"]]["primary_key"][0][2]
                 if aggregate == "":
                     aggregate += f'{i["aggregation_type"]}({i["table_name"]}.{i["field_name"]})'
                 else:
@@ -60,7 +67,7 @@ class ConvertToSQL:
         return (aggregate, group_by)
 
 def main():
-    query = "List all products with sellingprice greater than 10 and less than 20"
+    query = "List all products"
     new_db = Database("1", "a2_s3802828", "postgres", "localhost", 5432, "postgres", None)
     nlp_processor = NLPInputProcessor(query, new_db.flatten_dimension())
     mapped_query, token_to_tag = nlp_processor.map_query()
@@ -71,7 +78,7 @@ def main():
     # print(">> Mapped types: ", mapped_types)
     explore_struct = ExploreStructure(mapped_query, new_db.fetch_metadata())
     print(explore_struct.explore_struct)
-    print()
+    print(new_db.fetch_dimension())
 
     convertToSQL = ConvertToSQL(new_db.fetch_metadata())
     aggregate, group_by = convertToSQL.aggregate_template(explore_struct.explore_struct["measures"])
@@ -79,6 +86,7 @@ def main():
     where_clause = convertToSQL.where_template(explore_struct.explore_struct["filters"])
     sql_query = select_clause + aggregate + from_clause + where_clause + group_by
     print(sql_query)
+    print(new_db.run_query(sql_query))
 
 if __name__ == '__main__':
     main()
