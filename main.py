@@ -7,7 +7,7 @@ from nltk.corpus import stopwords
 from nltk.corpus import wordnet as wn
 from nltk import pos_tag
 from nltk import RegexpParser
-from autocorrect import Speller
+# from autocorrect import Speller
 import jamspell
 import numpy as np
 import os
@@ -17,7 +17,7 @@ from collections import deque
 import spacy
 import en_core_web_sm
 import dateparser
-from datetime import datetime
+import datetime
 import datefinder
 from dateutil import parser
 
@@ -49,22 +49,7 @@ def preprocess_date(sentence):
     for ent in processed_sentence.ents:
         if ent.label_ == "DATE":
             print(ent.text)
-            check_date = dateparser.parse(ent.text)
-            print(check_date)
-            if check_date is not None:
-                date_input.append(ent.text)
-
-    dates = datefinder.find_dates(sentence)
-    print("\ndate finder")
-    for get_date in dates:
-        print("get date finder", get_date)
-        if get_date in date_input:
-            print(get_date, "Already exist")
-        else:
-            date_input.append(get_date)
-            print(get_date, "new date")
-            # print(date_match, " more date")
-            # date_input.append(get_date)
+            date_input.append(ent.text)
 
     return date_input
 
@@ -195,15 +180,6 @@ def avg_map_word(words, internal_keywords, name_list):
                 avg_map[word] = ('', 0)
     return avg_map
 
-def get_date_range(dates):
-    date_range = list()
-    for date in dates:
-        print(date)
-        get_date = dateparser.parse(date)
-        if get_date is not None:
-            date_range.append(get_date)
-    return date_range
-
 def check_date_range(phrase, date_list):
     # date_range = list()
     # month_format = {
@@ -221,45 +197,58 @@ def check_date_range(phrase, date_list):
     #     "Dec": {'12', '12', 'Dec', 'December', 'Dec.'},
     # }
 
-    dates = datefinder.find_dates(phrase)
-    print("\ndate finder")
-    for get_date in dates:
-        print("get date finder", get_date)
-        if get_date not in date_list:
-            date_list.append(get_date)
-
-
-    print("not date finder")
+    # print("not date finder")
 
     check_range_operate = [
         'from.* \d{4} [^(?!to).*]*',
         'to.* \d{4}',
         'between.* \d{4} [^(?!and).*]*',
         'and.* \d{4}',
+        'in.* \d{4}',
+        'last.*'
     ]
 
     if len(phrase) != 0:
         for date_check in check_range_operate:
             check_date = re.findall(date_check, phrase)
-            # print(check_date)
+            # print(check_date, "check date")
             date_to_check = " ".join(check_date).split(" ")
             get_date = " ".join(date_to_check[1:]).strip()
             check_get_date = get_date.split(" ")
             if len(get_date) != 0:
                 # print(get_date)
                 # date_range.append(get_date)
-                date_input = parser.parse(get_date)
+                date_input = dateparser.parse(get_date)
+                # print(date_input)
                 if date_input is not None:
                     if len(check_get_date) == 1:
-                        date_input = date_input.date().replace(month=1, day=1)
-                        if get_date not in date_list:
-                            date_list.append(get_date)
-                        print(date_input)
-                    elif len(check_get_date) == 2:
-                        match_year_regex = '\d{4}'
-                        if
-                    else:
-                        print(date_input)
+                        date_input = date_input.replace(month=1, day=1)
+                    if date_input not in date_list:
+                        date_list.append(date_input)
+            else:
+                dates = datefinder.find_dates(phrase)
+                for date in dates:
+                    if date not in date_list:
+                        date_list.append(date)
+    return date_list
+
+def get_range_month(phrase):
+    date_list = list()
+    convert_date = dateparser.parse(phrase)
+    first_date = convert_date.replace(day=1)
+    date_list.append(first_date)
+    next_month = convert_date.replace(day=28) + datetime.timedelta(days=4)
+    last_date = next_month - datetime.timedelta(days=next_month.day)
+    date_list.append(last_date)
+    return date_list
+
+def get_range_year(phrase):
+    date_list = list()
+    convert_date = dateparser.parse(phrase)
+    first_date = convert_date.replace(day=1, month=1)
+    date_list.append(first_date)
+    last_date = convert_date.replace(day=31, month=12)
+    date_list.append(last_date)
     return date_list
 
 def mapped_operators(tokens):
@@ -293,6 +282,38 @@ def mapped_operators(tokens):
     joined_token = " ".join(tokens)
 
     date_range = preprocess_date(joined_token)
+    date_range_get = list()
+
+    if len(date_range) == 1:
+        date_input = date_range[0]
+        date_arr = date_input.split(" ")
+        year_check = '\d{4}'
+        check_year = re.findall(year_check, date_arr[-1])
+        print("check year ", check_year)
+        if date_arr[-1].isdigit():
+            if len(date_arr) == 1:
+                if check_year:
+                    date_range_get = get_range_year(date_input)
+            elif len(date_arr) == 2:
+                if check_year:
+                    date_range_get = get_range_month(date_input)
+                else:
+                    date = dateparser.parse(date_input)
+                    if date is not None:
+                        date_range_get.append(date)
+            # else:
+            #     date = dateparser.parse(date_input)
+            #     print(date)
+            #     if date is not None:
+            #         date_range_get.append(date)
+
+    # else:
+    #     for date in date_range:
+    #         date_arr = date.split(" ")
+    #         date_convert = dateparser.parse(date)
+    #         if len(date_arr) == 1:
+    #             date_convert = date_convert.replace(month=1, day=1)
+    #         date_range_get.append(date_convert)
 
     # chunk range operator
     range_operator_chunk = [
@@ -301,16 +322,15 @@ def mapped_operators(tokens):
         'from? [^(?!from).*]* - [\s\S]*',
         'between_[\s\S]*_and_[\s\S]*',
         'from?_[^(?!from).*]*_to_[\s\S]*',
-        'in [\s\S]*',
+        'in [^(!in).*]* [\s\S]*',
         'last [\s\S]*',
     ]
 
-    date_range_get = list()
     for regex in range_operator_chunk:
         matched_phrases = re.findall(regex, joined_token)
         for phrase in matched_phrases:
             print("phrase", phrase)
-            date_range_get = check_date_range(phrase, date_range)
+            date_range_get = check_date_range(phrase, date_range_get)
             # phrase = " ".join(phrase.split("_"))
             replaced_phrase = "_".join(phrase.split(" "))
             joined_token = joined_token.replace(phrase, replaced_phrase)
@@ -339,7 +359,7 @@ def mapped_operators(tokens):
             if word in val:
                 operators_map[word] = key
 
-    return operators_map, tokens, date_range
+    return operators_map, tokens, date_range_get
 
 
 def literal_matching(tokens, internal_keywords):
@@ -635,7 +655,10 @@ def main():
              "Movies that have higher profit than Frozen, Moana and Beauty and the Beast",
              "standard deviations of sale last quarter",
              "show geo map of customers by country",
-             "numbers of patients who is from New York and over 50 years old"]
+             "numbers of patients who is from New York and over 50 years old",
+             "Get all sale date in August 15",
+             "Calculate the total profit make in Jan 2019",
+             "Find the max lost happen in Saigon in 2022",]
 
     sample = ['sale', 'country', 'client', 'age', 'production_company', 'date', 'city', "movie"]
 
