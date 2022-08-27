@@ -204,7 +204,7 @@ def check_date_range(phrase, date_list):
         'to.* \d{4}',
         'between.* \d{4} [^(?!and).*]*',
         'and.* \d{4}',
-        'in.* \d{4}',
+        'in.*',
         'last.*'
     ]
 
@@ -215,14 +215,18 @@ def check_date_range(phrase, date_list):
             date_to_check = " ".join(check_date).split(" ")
             get_date = " ".join(date_to_check[1:]).strip()
             check_get_date = get_date.split(" ")
-            if len(get_date) != 0:
+            year_check = '\d{4}'
+            check_year = re.findall(year_check, check_get_date[-1])
+            if len(check_get_date) == 1 or len(check_get_date) == 2 or len(check_get_date) == 3:
                 # print(get_date)
                 # date_range.append(get_date)
                 date_input = dateparser.parse(get_date)
                 # print(date_input)
                 if date_input is not None:
-                    if len(check_get_date) == 1:
+                    if len(check_get_date) == 1 and check_year:
                         date_input = date_input.replace(month=1, day=1)
+                    if len(check_get_date) == 2 and check_year:
+                        date_input = date_input.replace(day=1)
                     if date_input not in date_list:
                         date_list.append(date_input)
             else:
@@ -289,7 +293,6 @@ def mapped_operators(tokens):
         date_arr = date_input.split(" ")
         year_check = '\d{4}'
         check_year = re.findall(year_check, date_arr[-1])
-        print("check year ", check_year)
         if date_arr[-1].isdigit():
             if len(date_arr) == 1:
                 if check_year:
@@ -301,19 +304,12 @@ def mapped_operators(tokens):
                     date = dateparser.parse(date_input)
                     if date is not None:
                         date_range_get.append(date)
-            # else:
-            #     date = dateparser.parse(date_input)
-            #     print(date)
-            #     if date is not None:
-            #         date_range_get.append(date)
-
-    # else:
-    #     for date in date_range:
-    #         date_arr = date.split(" ")
-    #         date_convert = dateparser.parse(date)
-    #         if len(date_arr) == 1:
-    #             date_convert = date_convert.replace(month=1, day=1)
-    #         date_range_get.append(date_convert)
+    elif len(date_range) > 2:
+        dates = datefinder.find_dates(joined_token)
+        for date in dates:
+            print(date)
+            if date not in date_range_get:
+                date_range_get.append(date)
 
     # chunk range operator
     range_operator_chunk = [
@@ -658,7 +654,8 @@ def main():
              "numbers of patients who is from New York and over 50 years old",
              "Get all sale date in August 15",
              "Calculate the total profit make in Jan 2019",
-             "Find the max lost happen in Saigon in 2022",]
+             "Find the max lost happen in Saigon in 2022",
+             "Get data in August 12, August 13, August 14, and Sep 17"]
 
     sample = ['sale', 'country', 'client', 'age', 'production_company', 'date', 'city', "movie"]
 

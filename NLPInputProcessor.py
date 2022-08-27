@@ -7,7 +7,7 @@ from nltk.corpus import stopwords
 from nltk.corpus import wordnet as wn
 from nltk import pos_tag
 from nltk import RegexpParser
-from autocorrect import Speller
+# from autocorrect import Speller
 import jamspell
 import numpy as np
 import os
