@@ -390,8 +390,6 @@ class NLPInputProcessor:
                         if date is not None:
                             date_range_get.append(date)
 
-
-
         # chunk range operator
         # chunking phrases
         for regex in RANGE_CHUNK:
@@ -399,8 +397,10 @@ class NLPInputProcessor:
             for phrase in matched_phrases:
                 date_range_get = self.check_date_range(phrase, date_range_get)
 
-                if len(date_range_get) > 0:
+                if len(date_range_get) >= 2:
                     replaced_phrase = "_to_".join(date_range_get)
+                elif len(date_range_get) == 1:
+                    replaced_phrase = date_range_get[0]
                 else:
                     replaced_phrase = "_".join(phrase.split(" "))
                 sentence = sentence.replace(phrase, replaced_phrase)
