@@ -1,6 +1,7 @@
 <template>
   <div class="autocomplete">
-    <input
+    <div class="input-group my-1">
+      <input
       type="text"
       class="form-control"
       id="basic-url"
@@ -13,6 +14,7 @@
       @keydown.enter="onEnter"
     />
     <button type="button" class="btn mb-2 mb-md-0 py-3 px-4 btn-quarternary" @click="getQueryResult(search)">SEND</button>
+    </div>
     <ul id="autocomplete-results" v-show="isOpen" class="autocomplete-results">
       <li class="loading" v-if="isLoading">Loading results...</li>
       <li
