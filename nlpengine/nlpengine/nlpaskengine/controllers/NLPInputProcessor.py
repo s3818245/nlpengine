@@ -90,7 +90,7 @@ AGGREGATOR_CHUNK = {
 GRAPH_TYPES = ["Table", "Pivot Table", "KPI Metric", "Metric Sheets", "Line Chart", "Area Chart",
                "Column Chart", "Bar Chart", "Combination Chart", "Pie Chart", "Donut Chart", "Scatter Chart"
     , "Bubble Chart", "Retention Heatmap", "Geo Map", "Point Map", "Heatmap", "Filled Map", "Conversion Funnel"
-    , "Radar Chart", "Word Cloud", "Gauge Chart", "Pyramid Chart", "List"]
+    , "Radar Chart", "Word Cloud", "Gauge Chart", "Pyramid Chart", "List", "Show"]
 
 UNCATEGORIZED_PHRASES = ["year old"]
 

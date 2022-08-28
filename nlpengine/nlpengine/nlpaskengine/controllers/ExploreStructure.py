@@ -32,6 +32,7 @@ class ExploreStructure:
         """
         self.mapped_list = mapped_list
         self.metadata = metadata_struct
+        print(self.metadata)
         self.clause_order = deque()
         self.curr_dimension = None
         self.curr_measure = None
@@ -51,30 +52,55 @@ class ExploreStructure:
 
     def generate_base_explore(self):
         for (mapped, mapped_type) in self.mapped_list:
+            print((mapped, self.curr_measure))
             if mapped_type == "field":
                 if mapped in self.metadata:
                     self.last_table = mapped
                 else:
                     self.last_field = mapped
 
-                if self.last_table and self.last_field:
-                    self.explore_struct["dimensions"].append(
-                        {"table_name": self.last_table,
-                         "field_name": self.last_field}
-                    )
+                # if self.last_table and self.last_field:
+                #     self.explore_struct["dimensions"].append(
+                #         {"table_name": self.last_table,
+                #          "field_name": self.last_field}
+                #     )
                 if self.last_table:
                     self.explore_struct["dimensions"].append(
                         {"table_name": self.last_table,
                          "field_name": ''}
                     )
+                    if self.curr_measure is not None:
+                        # if a measure is currently generated -> field/table is part of measure clause
+                        self.curr_measure.add_field(mapped)
+                if self.last_field:
+                    table = None
+                    for key,val in self.metadata.items():
+                        if self.last_field in val["columns"]:
+                            table = key
 
-                if self.curr_measure is not None:
+                    self.explore_struct["dimensions"].append(
+                        {"table_name": table,
+                            "field_name": self.last_field}
+                    )
+                    if self.curr_measure is not None:
                     # if a measure is currently generated -> field/table is part of measure clause
-                    self.curr_measure.add_field(mapped)
+                        self.curr_measure.add_field(mapped)
+                        if table is not None:
+                            self.curr_measure.add_field(table)
+
+                # if self.curr_measure is not None:
+                #     # if a measure is currently generated -> field/table is part of measure clause
+                #     self.curr_measure.add_field(mapped)
 
             elif mapped_type == "aggregator":
                 self.curr_measure = GenerateMeasureClause(self.metadata)
                 self.curr_measure.add_aggregation(mapped)
+                # if self.last_field:
+                #     table = None
+                #     for key,val in self.metadata.items():
+                #         if self.last_field in val["columns"]:
+                #             table = key
+                #     self.curr_measure.add_field(table)
                 if self.last_table is not None:
                     self.curr_measure.add_field(self.last_table)
 
