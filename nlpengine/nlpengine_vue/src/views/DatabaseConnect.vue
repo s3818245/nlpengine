@@ -1,18 +1,35 @@
 <template>
-  <div class="hello" style="height: 100%;">
+  <div class="hello connect_db" style="height: 100%;">
     <nav class="navbar navbar-expand-lg bg-light">
       <div class="container-fluid">
         <a class="navbar-brand" href="#">Holistics NLP</a>
       </div>
     </nav>
+    <div id="myCarousel" class="carousel slide" data-bs-ride="carousel">
+      <div class="carousel-inner" role="listbox" style=" position: absolute; top: 0; right: 0; left: 0; bottom: 0;">
+        <div class="carousel-item item active">
+          <img src="../assets/image1.jpg" style="width: 100%; height: 100%; object-fit: cover;" alt="">
+        </div>
+        <div class="carousel-item item">
+          <img src="../assets/image2.png" style="width: 100%; height: 100%; object-fit: cover;" alt="">
+        </div>
+        <div class="carousel-item item">
+          <img src="../assets/image3.jpg" style="width: 100%; height: 100%; object-fit: cover;" alt="">
+        </div>
+      </div>
+    </div>
     <div class="align-middle">
-      <h1 class="text-center my-5 py-5">Welcome to Holistics' NLP Engine</h1>
-      <h4 class="text-center my-5 py-5">
+      <div class="d-flex justify-content-center">
+        <img class="my-5 py-5" src="../assets/holistics.png" alt="" style="background-color: white; width: 30%;">
+      </div>
+      <h1 class="text-center my-5 py-5 text-color">Welcome to Holistics' NLP Engine</h1>
+      <h4 class="text-center my-5 py-5 text-color">
         Explore your own database through data visualization
       </h4>
       <div class="d-flex justify-content-center">
         <!-- Button trigger modal -->
-        <button type="button" class="btn btn-primary text-center" data-bs-toggle="modal" data-bs-target="#exampleModal">
+        <button type="button" class="btn btn-holistics text-center text-color" data-bs-toggle="modal"
+          data-bs-target="#exampleModal">
           Connect to Database
         </button>
 
@@ -79,7 +96,7 @@
           </div>
         </div>
       </div>
-      <h5 class="text-center my-3 py-3">Supported database: PostgreSQL</h5>
+      <h5 class="text-center my-3 py-3 text-color">Supported database: PostgreSQL</h5>
     </div>
   </div>
 </template>
@@ -121,6 +138,7 @@ export default {
         .catch((error) => console.log(error));
     },
   },
+
 };
 </script>
 
@@ -142,5 +160,125 @@ li {
 
 a {
   color: #42b983;
+}
+
+.text-color {
+  color: black;
+  
+  -webkit-text-fill-color: transparent;
+  -webkit-text-stroke: 1px;
+}
+
+.btn-holistics {
+  background-color: #4fb47f;
+}
+
+.carousel-fade .carousel-inner .item {
+  opacity: 0;
+  transition-property: opacity;
+  background: rgba(0, 0, 0, 1);
+}
+
+.carousel-fade .carousel-inner .active {
+  opacity: 0.5;
+  background: rgba(0, 0, 0, 1);
+}
+
+/* .carousel-fade .carousel-inner .active.left,
+.carousel-fade .carousel-inner .active.right {
+  left: 0;
+  opacity: 0;
+  z-index: 1;
+}
+
+.carousel-fade .carousel-inner .next.left,
+.carousel-fade .carousel-inner .prev.right {
+  opacity: 1;
+}
+
+.carousel-fade .carousel-control {
+  z-index: 2;
+} */
+
+/* @media all and (transform-3d),
+(-webkit-transform-3d) {
+
+  .carousel-fade .carousel-inner>.item.next,
+  .carousel-fade .carousel-inner>.item.active.right {
+    opacity: 0;
+    -webkit-transform: translate3d(0, 0, 0);
+    transform: translate3d(0, 0, 0);
+  }
+
+  .carousel-fade .carousel-inner>.item.prev,
+  .carousel-fade .carousel-inner>.item.active.left {
+    opacity: 0;
+    -webkit-transform: translate3d(0, 0, 0);
+    transform: translate3d(0, 0, 0);
+  }
+
+  .carousel-fade .carousel-inner>.item.next.left,
+  .carousel-fade .carousel-inner>.item.prev.right,
+  .carousel-fade .carousel-inner>.item.active {
+    opacity: 1;
+    -webkit-transform: translate3d(0, 0, 0);
+    transform: translate3d(0, 0, 0);
+  }
+} */
+
+/* .item:nth-child(1) {
+  background: no-repeat center center fixed;
+  -webkit-background-size: cover;
+  -moz-background-size: cover;
+  -o-background-size: cover;
+  background-size: cover;
+  background-color: rgba(0, 0, 0, 1);
+}
+
+.item:nth-child(2) {
+  background: no-repeat center center fixed;
+  -webkit-background-size: cover;
+  -moz-background-size: cover;
+  -o-background-size: cover;
+  background-size: cover;
+  background-color: rgba(0, 0, 0, 1);
+}
+
+.item:nth-child(3) {
+  background: no-repeat center center fixed;
+  -webkit-background-size: cover;
+  -moz-background-size: cover;
+  -o-background-size: cover;
+  background-size: cover;
+  background-color: rgba(0, 0, 0, 1);
+} */
+
+.carousel {
+  z-index: -99;
+}
+
+.carousel .item {
+  position: fixed;
+  width: 100%;
+  height: 100%;
+  opacity: 0.75;
+}
+
+
+.carousel-item::after {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(0,0,0,0.6);
+}
+
+.title {
+  text-align: center;
+  margin-top: 20px;
+  padding: 10px;
+  text-shadow: 2px 2px #000;
+  color: #FFF;
 }
 </style>
