@@ -6,7 +6,7 @@
       </div>
     </nav>
     <div id="myCarousel" class="carousel slide" data-bs-ride="carousel">
-      <div class="carousel-inner" role="listbox" style=" position: absolute; top: 0; right: 0; left: 0; bottom: 0;">
+      <div class="carousel-inner" role="listbox" style=" position: absolute; top: 0; right: 0; left: 0; bottom: 0">
         <div class="carousel-item item active">
           <img src="../assets/image1.jpg" style="width: 100%; height: 100%; object-fit: cover;" alt="">
         </div>
@@ -19,8 +19,8 @@
       </div>
     </div>
     <div class="align-middle">
-      <div class="d-flex justify-content-center">
-        <img class="my-5 py-5" src="../assets/holistics.png" alt="" style="background-color: white; width: 30%;">
+      <div class="d-flex justify-content-center my-5 py-5">
+        <img src="../assets/holistics.png" alt="" style="background-color: white; width: 30%;">
       </div>
       <h1 class="text-center my-5 py-5 text-color">Welcome to Holistics' NLP Engine</h1>
       <h4 class="text-center my-5 py-5 text-color">
@@ -165,7 +165,7 @@ a {
 .text-color {
   color: black;
   
-  -webkit-text-fill-color: transparent;
+  -webkit-text-fill-color: white;
   -webkit-text-stroke: 1px;
 }
 
@@ -180,12 +180,13 @@ a {
 }
 
 .carousel-fade .carousel-inner .active {
-  opacity: 0.5;
+  opacity: 0.75;
   background: rgba(0, 0, 0, 1);
 }
 
 /* .carousel-fade .carousel-inner .active.left,
 .carousel-fade .carousel-inner .active.right {
+
   left: 0;
   opacity: 0;
   z-index: 1;
