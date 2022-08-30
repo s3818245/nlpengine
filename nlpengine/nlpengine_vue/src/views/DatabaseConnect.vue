@@ -22,8 +22,8 @@
       <div class="d-flex justify-content-center my-5 py-5">
         <img src="../assets/holistics.png" alt="" style="background-color: white; width: 30%;">
       </div>
-      <h1 class="text-center my-5 py-5 text-color">Welcome to Holistics' NLP Engine</h1>
-      <h4 class="text-center my-5 py-5 text-color">
+      <h1 class="text-center my-3 py-3 text-color">Welcome to Holistics' NLP Engine</h1>
+      <h4 class="text-center my-3 py-3 text-color">
         Explore your own database through data visualization
       </h4>
       <div class="d-flex justify-content-center">
