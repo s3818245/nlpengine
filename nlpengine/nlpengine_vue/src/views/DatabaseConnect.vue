@@ -5,7 +5,7 @@
         <a class="navbar-brand" href="#">Holistics NLP</a>
       </div>
     </nav>
-    <div id="myCarousel" class="carousel slide" data-bs-ride="carousel">
+    <div id="myCarousel" class="carousel slide" data-bs-ride="carousel" style="background-color: rbga(0,0,0,1);">
       <div class="carousel-inner" role="listbox" style=" position: absolute; top: 0; right: 0; left: 0; bottom: 0">
         <div class="carousel-item item active">
           <img src="../assets/image1.jpg" style="width: 100%; height: 100%; object-fit: cover;" alt="">
@@ -28,7 +28,7 @@
       </h4>
       <div class="d-flex justify-content-center">
         <!-- Button trigger modal -->
-        <button type="button" class="btn btn-holistics text-center text-color" data-bs-toggle="modal"
+        <button type="button" class="btn btn-holistics text-center" data-bs-toggle="modal"
           data-bs-target="#exampleModal">
           Connect to Database
         </button>
