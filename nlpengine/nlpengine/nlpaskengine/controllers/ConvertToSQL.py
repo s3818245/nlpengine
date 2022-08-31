@@ -12,12 +12,12 @@ class ConvertToSQL:
     def base_template(self, dimension):
         select_clause = ""
         if dimension["field_names"] == [''] or " all " in self.query:
-            select_clause += "SELECT *"
+            select_clause += "SELECT DISTINCT *"
         else:
             for i in dimension["field_names"]:
                 if i == '': continue
                 if select_clause == "":
-                    select_clause += "SELECT " + i
+                    select_clause += "SELECT DISTINCT " + i
                 else:
                     select_clause += ", " + i
         from_clause = " FROM " + dimension["table_name"] 
@@ -30,21 +30,25 @@ class ConvertToSQL:
         else:
             return f' INNER JOIN {table_name_2} ON {table_name_1}.{key_1} = {table_name_2}.{key_2}'
 
-    def checkJoinCondition(self, dimensions):
+    def checkJoinCondition(self, dimensions, measures):
         if len(dimensions) > 1:
             inner_join_array = {}
             select_clause = ""
             for dimension in dimensions:
                 if dimension["field_names"] == [''] or " all " in self.query:
                     if select_clause == "":
-                        select_clause += "SELECT *"
+                        select_clause += "SELECT DISTINCT *"
                 else:
                     for i in dimension["field_names"]:
                         if i == '': continue
-                        if select_clause == "":
-                            select_clause += "SELECT " + i
-                        else:
-                            select_clause += ", " + i
+                        for y in measures:
+                            if y["aggregation_type"] != "group_by":
+                                if y["field_name"] == i and dimension["table_name"] == y['table_name']:
+                                    continue
+                                if select_clause == "":
+                                    select_clause += "SELECT DISTINCT " + i
+                                else:
+                                    select_clause += ", " + i
             for i in range(len(dimensions)):
                 for y in range(len(dimensions)):
                     if y == i: continue

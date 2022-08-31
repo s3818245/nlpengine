@@ -27,7 +27,7 @@ def get_query(request):
 
     convertToSQL = ConvertToSQL(new_db.fetch_metadata(), query)
     aggregate, group_by = convertToSQL.aggregate_template(explore_struct.explore_struct["measures"])
-    select_clause, from_clause =convertToSQL.checkJoinCondition(explore_struct.explore_struct["dimensions"])
+    select_clause, from_clause =convertToSQL.checkJoinCondition(explore_struct.explore_struct["dimensions"], explore_struct.explore_struct["measures"])
     where_clause = convertToSQL.where_template(explore_struct.explore_struct["filters"])
 
     if (aggregate != ""):

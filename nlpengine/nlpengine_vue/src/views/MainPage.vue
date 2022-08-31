@@ -72,6 +72,10 @@
                 <div class="card-body">
                   <bar-chart v-if="barChartData != undefined" :data="barChartData">
                   </bar-chart>
+                  <pie-chart v-if="pieChartData != undefined" :data="pieChartData">
+                  </pie-chart>
+                  <line-chart v-if="lineChartData != undefined" :data="lineChartData">
+                  </line-chart>
                   <div v-if="queryData != undefined && queryData.result != undefined">
                     <table class="table table-success table-striped-columns">
                       <thead>
@@ -192,12 +196,14 @@ export default {
       chosen: "",
       queryData: undefined,
       barChartData: undefined,
+      pieChartData: undefined,
+      lineChartData: undefined,
       input: "",
       bool: false,
       metadataObj: {},
       db_name: "",
       item: {},
-      suggestionList: [],
+      suggestionList: ["show", "line", "chart", "bar", "pie", "all", "list", "by", "show bar chart", "number of", "show pie chart", "list all", "show line chart", "group by", "by", "each"],
       items: [
         { id: 1, name: "Golden Retriever" },
         { id: 2, name: "Cat" },
@@ -240,8 +246,8 @@ export default {
     updateDataFromChild(data) {
       if (
         data.expStruct.visualization &&
-        data.expStruct.visualization == "Bar_Chart"
-      ) {
+        (data.expStruct.visualization == "Bar_Chart" || data.expStruct.visualization == "Pie_Chart" || data.expStruct.visualization == "Line_Chart")
+       ) {
         console.log("aloha")
         var result = {}
         var keyArray = Object.keys(data.result)
@@ -252,10 +258,31 @@ export default {
             result[key] = data.result[keyArray[i]][y]
           }
         }
-        this.barChartData = result;
         this.queryData = { 'expStruct': data.expStruct, 'sqlQuery': data.sqlQuery }
-      } else {
+        switch (data.expStruct.visualization) {
+          case "Bar_Chart":
+            this.barChartData = result;
+            this.pieChartData = undefined
+            this.lineChartData = undefined
+            return;
+          case "Pie_Chart":
+            this.pieChartData = result;
+            this.barChartData = undefined
+            this.lineChartData = undefined
+            return;
+          case "Line_Chart":
+            this.lineChartData = result
+            this.barChartData = undefined
+            this.pieChartData = undefined
+            return;
+          default:
+            return;
+        }
+      }
+      else {
         this.barChartData = undefined
+        this.pieChartData = undefined
+        this.lineChartData = undefined
         this.queryData = data;
       }
     },
