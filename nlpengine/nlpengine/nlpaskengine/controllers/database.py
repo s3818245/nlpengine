@@ -27,6 +27,9 @@ class Database:
     def get_connection(self):
         return self.__db_connection
 
+    def get_name(self):
+        return self.__db_name
+
     def close_connection(self):
         if self.__db_connection is not None:
             self.__db_connection.close()

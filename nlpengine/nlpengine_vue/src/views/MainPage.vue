@@ -1,53 +1,35 @@
 <template>
   <div class="hello">
-    <!-- <nav class="navbar navbar-expand-lg bg-light">
-      <div class="container-fluid">
-        <a class="navbar-brand" href="#">Holistics NLP</a>
-
-        <div class="d-flex">
-          <button type="button" class="btn mb-2 mb-md-0 py-2 px-2 btn-quarternary">End Session</button>
-        </div>
-      </div>
-    </nav> -->
 
     <div class="sidebar" :style="{ width: sidebarWidth }">
       <h1>
         <span v-if="collapsed">
-          <div>N</div>
-          <div>E</div>
+          <div><i class="fa-solid fa-database"></i></div>
         </span>
         <span v-else>
-          NLP Engine
+          {{db_name}}
         </span>
       </h1>
 
       <div>
         <div v-if="!collapsed">
-          <div class="" v-for="num in 5" :key="num">
+          <div class="" v-for="(item, key) in metadataObj" :key="item">
             <div class="d-flex align-items-center">
 
               <div class="d-flex ms-0">
-                <button class="btn mx-2 my-2" type="button" data-bs-toggle="collapse" :data-bs-target="'#table' + num"
-                  aria-expanded="false" :aria-controls="'table' + num">
-                  v
+                <button class="btn mx-2 my-2" type="button" data-bs-toggle="collapse" :data-bs-target="'#table' + key"
+                  aria-expanded="false" :aria-controls="'table' + key">
+                  <i class="fa-solid fa-caret-down" style="color: white"></i>
                 </button>
-                <h5 class="align-self-center">Table name</h5>
+                <h5 class="align-self-center">{{key}}</h5>
               </div>
 
-              <button class="btn me-0 mx-2 my-2 w-25" type="button">
-                <img src="https://cdn-icons-png.flaticon.com/512/875/875623.png" />
-              </button>
-
             </div>
-            <div class="collapse" :id="'table' + num">
+            <div class="collapse" :id="'table' + key">
               <div class="d-flex flex-column mb-3">
 
-                <button type="button" class="btn field py-1 mx-2 my-2"
-                  @click="addToInput('Column name 1')">Column name 1</button>
-                <button type="button" class="btn field py-1 mx-2 my-2"
-                  @click="addToInput('Column name 2')">Column name 2</button>
-                <button type="button" class="btn field py-1 mx-2 my-2"
-                  @click="addToInput('Column name 3')">Column name 3</button>
+                <button v-for="col in item" :key="col" type="button" class="btn field py-1 mx-2 my-2"
+                  @click="addToInput(col)">{{col}}</button>
               </div>
             </div>
           </div>
@@ -57,7 +39,7 @@
 
 
       <div v-if="!collapsed">
-        <button type="button" class="btn mb-2 mb-md-0 py-2 px-2 btn-quarternary">End Session</button>
+        <button type="button" class="btn mb-2 mb-md-0 py-2 px-2 btn-quarternary" @click="disconnectDatabase()">End Session</button>
       </div>
       <div v-else>
         <button type="button" class="btn mb-2 mb-md-0 py-2 px-2 btn-quarternary">
@@ -80,17 +62,7 @@
         <div class="col-10 col-sm-8">
           <div class="row">
             <label for="basic-url" class="form-label">Business Question</label>
-            <AutoCompleteVue @updateData="updateDataFromChild($event)" :newValue="input" :watchState="bool" :items="[
-              'Apple',
-              'Banana',
-              'Orange',
-              'Mango',
-              'Pear',
-              'Peach',
-              'Grape',
-              'Tangerine',
-              'Pineapple',
-            ]" />
+            <AutoCompleteVue @updateData="updateDataFromChild($event)" :newValue="input" :watchState="bool" :items="suggestionList" />
             <br />
           </div>
 
@@ -101,7 +73,7 @@
                   <bar-chart v-if="barChartData != undefined" :data="barChartData">
                   </bar-chart>
                   <div v-if="queryData != undefined && queryData.result != undefined">
-                    <table class="table table-dark table-striped-columns">
+                    <table class="table table-success table-striped-columns">
                       <thead>
                         <tr>
                           <th scope="col">#</th>
@@ -201,6 +173,7 @@ import { format } from "sql-formatter";
 import AutoCompleteVue from "../components/AutoComplete.vue";
 import { assertExpressionStatement } from "@babel/types";
 import { collapsed, toggleSidebar, sidebarWidth } from "@/components/sidebarState.js";
+import axios from 'axios';
 
 export default {
   name: "MainPage",
@@ -221,7 +194,10 @@ export default {
       barChartData: undefined,
       input: "",
       bool: false,
+      metadataObj: {},
+      db_name: "",
       item: {},
+      suggestionList: [],
       items: [
         { id: 1, name: "Golden Retriever" },
         { id: 2, name: "Cat" },
@@ -229,7 +205,38 @@ export default {
       ],
     };
   },
+  mounted(){
+    this.getMetaData()
+  },
   methods: {
+    getSuggestionList(){
+        for (let key in this.metadataObj){
+          this.suggestionList.push(key)
+          this.suggestionList.concat(this.metadataObj[key])
+        }
+    },
+    getMetaData(){
+      axios
+        .get("http://127.0.0.1:8000/nlp/database/get/")
+        .then((res) => {
+          if (res.data.metadata){
+              this.metadataObj = res.data.metadata
+              this.db_name = res.data.db_name
+              this.getSuggestionList()
+          } else {
+            window.location.replace("http://localhost:8080/")
+          }
+        })
+        .catch((error) => console.log(error));
+    },
+    disconnectDatabase(){
+      axios
+        .get("http://127.0.0.1:8000/nlp/database/disconnect/")
+        .then((res) => {
+            window.location.replace("http://localhost:8080/")
+        })
+        .catch((error) => console.log(error));
+    },
     updateDataFromChild(data) {
       if (
         data.expStruct.visualization &&

@@ -1,130 +1,177 @@
 <template>
-  <div class="hello">
-    <h1 class="text-center">Welcome to Holistics' NLP Engine</h1>
-    <br />
-    <br />
-    <br />
-    <h4 class="text-center">
-      Explore your own database through data visualization
-    </h4>
-    <br />
-
-    <div class="d-flex justify-content-center">
-      <!-- Button trigger modal -->
-      <button
-        type="button"
-        class="btn btn-primary text-center"
-        data-bs-toggle="modal"
-        data-bs-target="#exampleModal"
-      >
-        Connect to Database
-      </button>
-
-      <!-- Modal -->
+  <div class="hello connect_db" style="height: 100%">
+    <div
+      id="myCarousel"
+      class="carousel slide"
+      data-bs-ride="carousel"
+      style="width: 100%; height: 100vh; background-color: rbga(0, 0, 0, 1)"
+    >
       <div
-        class="modal fade"
-        id="exampleModal"
-        tabindex="-1"
-        aria-labelledby="exampleModalLabel"
-        aria-hidden="true"
+        class="carousel-inner"
+        role="listbox"
       >
-        <div class="modal-dialog modal-dialog-centered">
-          <div class="modal-content">
-            <div class="modal-header">
-              <h5 class="modal-title" id="exampleModalLabel">
-                New Data Source
-              </h5>
-              <button
-                type="button"
-                class="btn-close"
-                data-bs-dismiss="modal"
-                aria-label="Close"
-              ></button>
-            </div>
-            <div class="modal-body">
-              <div class="container">
-                <div class="row">
-                  <div class="col-6">
-                    <label for="basic-url" class="form-label">Host</label>
-                    <div class="input-group mb-3">
-                      <input
-                        type="text"
-                        class="form-control"
-                        id="basic-url"
-                        aria-describedby="basic-addon3"
-                        v-model="host"
-                      />
-                    </div>
-                  </div>
-                  <div class="col-6">
-                    <label for="basic-url" class="form-label">Port</label>
-                    <div class="input-group mb-3">
-                      <input
-                        type="text"
-                        class="form-control"
-                        id="basic-url"
-                        aria-describedby="basic-addon3"
-                        v-model="port"
-                      />
-                    </div>
-                  </div>
-                </div>
+        <div
+          class="carousel-item item active"
+        >
+          <img
+            src="../assets/image1.jpg"
+            style="width: 100%; height: 100%; object-fit: cover"
+            alt=""
+          />
+        </div>
+        <div class="carousel-item item">
+          <img
+            src="../assets/image2.png"
+            style="width: 100%; height: 100%; object-fit: cover"
+            alt=""
+          />
+        </div>
+        <div class="carousel-item item">
+          <img
+            src="../assets/image3.jpg"
+            style="width: 100%; height: 100%; object-fit: cover"
+            alt=""
+          />
+        </div>
+      </div>
+    </div>
+    <div class="align-middle">
+      <div class="d-flex justify-content-center my-5 py-5">
+        <img
+          src="../assets/holistics.png"
+          alt=""
+          style="background-color: white; width: 30%; padding: 1%;"
+        />
+      </div>
+      <h1 class="text-center my-3 py-3 text-color">
+        Welcome to Holistics' NLP Engine
+      </h1>
+      <h4 class="text-center my-3 py-3 text-color">
+        Explore your own database through data visualization
+      </h4>
+      <div class="d-flex justify-content-center">
+        <!-- Button trigger modal -->
+        <button
+          type="button"
+          class="btn btn-holistics text-center"
+          data-bs-toggle="modal"
+          data-bs-target="#exampleModal"
+        >
+          Connect to Database
+        </button>
 
-                <div class="row">
-                  <div class="col">
-                    <label for="basic-url" class="form-label"
-                      >Database Name</label
-                    >
-                    <div class="input-group mb-3">
-                      <input
-                        type="text"
-                        class="form-control"
-                        id="basic-url"
-                        aria-describedby="basic-addon3"
-                        v-model="name"
-                      />
+        <!-- Modal -->
+        <div
+          class="modal fade"
+          id="exampleModal"
+          tabindex="-1"
+          aria-labelledby="exampleModalLabel"
+          aria-hidden="true"
+        >
+          <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title" id="exampleModalLabel">
+                  New Data Source
+                </h5>
+                <button
+                  type="button"
+                  class="btn-close"
+                  data-bs-dismiss="modal"
+                  aria-label="Close"
+                ></button>
+              </div>
+              <div class="modal-body">
+                <div class="container">
+                  <div class="row">
+                    <div class="col-6">
+                      <label for="basic-url" class="form-label">Host</label>
+                      <div class="input-group mb-3">
+                        <input
+                          type="text"
+                          class="form-control"
+                          id="basic-url"
+                          aria-describedby="basic-addon3"
+                          v-model="host"
+                        />
+                      </div>
+                    </div>
+                    <div class="col-6">
+                      <label for="basic-url" class="form-label">Port</label>
+                      <div class="input-group mb-3">
+                        <input
+                          type="text"
+                          class="form-control"
+                          id="basic-url"
+                          aria-describedby="basic-addon3"
+                          v-model="port"
+                        />
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div class="row">
-                  <div class="col-6">
-                    <label for="basic-url" class="form-label">Username</label>
-                    <div class="input-group mb-3">
-                      <input
-                        type="text"
-                        class="form-control"
-                        id="basic-url"
-                        aria-describedby="basic-addon3"
-                        v-model="user"
-                      />
+
+                  <div class="row">
+                    <div class="col">
+                      <label for="basic-url" class="form-label"
+                        >Database Name</label
+                      >
+                      <div class="input-group mb-3">
+                        <input
+                          type="text"
+                          class="form-control"
+                          id="basic-url"
+                          aria-describedby="basic-addon3"
+                          v-model="name"
+                        />
+                      </div>
                     </div>
                   </div>
-                  <div class="col-6">
-                    <label for="basic-url" class="form-label">Password</label>
-                    <div class="input-group mb-3">
-                      <input
-                        type="text"
-                        class="form-control"
-                        id="basic-url"
-                        aria-describedby="basic-addon3"
-                        v-model="password"
-                      />
+                  <div class="row">
+                    <div class="col-6">
+                      <label for="basic-url" class="form-label">Username</label>
+                      <div class="input-group mb-3">
+                        <input
+                          type="text"
+                          class="form-control"
+                          id="basic-url"
+                          aria-describedby="basic-addon3"
+                          v-model="user"
+                        />
+                      </div>
+                    </div>
+                    <div class="col-6">
+                      <label for="basic-url" class="form-label">Password</label>
+                      <div class="input-group mb-3">
+                        <input
+                          type="text"
+                          class="form-control"
+                          id="basic-url"
+                          aria-describedby="basic-addon3"
+                          v-model="password"
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
-            <div class="modal-footer">
-              <button type="button" class="btn btn-primary" @click="connectDatabase()">CONNECT</button>
+              <div class="modal-footer">
+                <div v-if="failedConnect" style="color: red">Cannot connect to this database!</div>
+                <button
+                  type="button"
+                  class="btn btn-success"
+                  @click="connectDatabase()"
+                >
+                  CONNECT
+                </button>
+              </div>
             </div>
           </div>
         </div>
       </div>
+      <h5 class="text-center my-3 py-3 text-color">
+        Supported database: PostgreSQL
+      </h5>
     </div>
-
-    <br />
-    <br />
-    <h5 class="text-center">Supported database: PostgreSQL</h5>
   </div>
 </template>
 
@@ -132,35 +179,35 @@
 import axios from "axios";
 export default {
   name: "DatabaseConnect",
-  data(){
+  data() {
     return {
-            name: "",
-            host: "",
-            port: "",
-            user: "",
-            failedConnect: false,
-            password: NaN
-        }
+      name: "",
+      host: "",
+      port: "",
+      user: "",
+      failedConnect: false,
+      password: "",
+    };
   },
   methods: {
     connectDatabase() {
       axios
-        .get("http://127.0.0.1:8000/nlp/database/", {
+        .get("http://127.0.0.1:8000/nlp/database/connect/", {
           params: {
-            name: "nlp_demo",
+            name: this.name,
             type: "postgres",
-            host: "localhost",
-            port: 5432,
-            user: "postgres",
-            password: this.password
+            host: this.host,
+            port: this.port,
+            user: this.user,
+            password: this.password,
           },
         })
         .then((res) => {
-            if (res.data.message == "Success"){
-                window.location.replace("http://localhost:8080/query")
-            } else {
-                this.failedConnect = true
-            }
+          if (res.data.message == "Success") {
+            window.location.replace("http://localhost:8080/query");
+          } else {
+            this.failedConnect = true;
+          }
         })
         .catch((error) => console.log(error));
     },
@@ -183,5 +230,49 @@ li {
 }
 a {
   color: #42b983;
+}
+.item {
+  position: fixed;
+  width: 100%;
+  height: 100%;
+}
+.item:after {
+  content: "";
+  display: block;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(0, 0, 0, 0.7);
+}
+.btn-holistics {
+  background-color: #4fb47f;
+}
+.carousel-fade .carousel-inner .item {
+  opacity: 0;
+  transition-property: opacity;
+  background: rgba(0, 0, 0, 1);
+}
+.carousel-fade .carousel-inner .active {
+  opacity: 0.75;
+  background: rgba(0, 0, 0, 1);
+}
+.carousel {
+  z-index: -99;
+}
+.carousel {
+  position: fixed;
+  top: 0;
+  width: 100%;
+  height: 100vh;
+  opacity: 0.75;
+}
+.text-color {
+  text-align: center;
+  margin-top: 20px;
+  padding: 10px;
+  text-shadow: 2px 2px #000;
+  color: #fff;
 }
 </style>

@@ -53,7 +53,7 @@ AGGREGATORS = {
     "stdevp": {"stdevp"},
     "var": {"var"},
     "varp": {"varp"},
-    "group_by": {"group_by", "each", "group"}
+    "group_by": {"group_by", "each", "group", "by"}
 }
 
 OPERATORS_AGGREGATORS = {}
@@ -117,6 +117,19 @@ class NLPInputProcessor:
         # print("Detected operators: ", self.detected_operators)
         self.processed_input = operator_chunked_sentence
 
+    def select_from_literal(self, map_word_canditates):
+        literal_map = dict()
+        def literal_mismatch_rate(curr_word, meta_word):
+            return abs(len(curr_word) - len(meta_word))
+
+        for key, mapped_list in map_word_canditates.items():
+            mapped_word = mapped_list[0]
+            for mapped in mapped_list:
+                if literal_mismatch_rate(key, mapped) < literal_mismatch_rate(mapped_word, key):
+                    mapped_word = mapped
+            literal_map[key] = mapped_word
+        return literal_map
+
     def map_query(self):
         tokens = nltk.word_tokenize(self.processed_input)
         # chunking tokens
@@ -130,6 +143,10 @@ class NLPInputProcessor:
         # print("flattened query", self.metadata)
         # try literal mapping
         literal_mapped, remaining_tokens = self.literal_matching(filtered_sentence)
+
+        # select from literal mapped candidates
+        literal_mapped = self.select_from_literal(literal_mapped)
+
         # print("literal mapped value ", literal_mapped)
         mapped_literal_chunks = {key: val for key, val in chunks.items() if key in literal_mapped}
 
@@ -153,6 +170,7 @@ class NLPInputProcessor:
 
         # tag the mapped query
         for token in all_tokens:
+            processed_token = token.lower().replace("_", " ")
             if token == '':
                 continue
             elif token in self.detected_operators:
@@ -160,44 +178,44 @@ class NLPInputProcessor:
                 # tag token
                 if self.detected_operators[token] in FILTER:
                     mapped_query.append((self.detected_operators[token], "filter"))
-                    token_to_map[token] = (self.detected_operators[token], "filter")
+                    token_to_map[processed_token] = (self.detected_operators[token], "filter")
                 elif self.detected_operators[token] in AGGREGATORS:
                     mapped_query.append((self.detected_operators[token], "aggregator"))
-                    token_to_map[token] = (self.detected_operators[token], "aggregator")
+                    token_to_map[processed_token] = (self.detected_operators[token], "aggregator")
                 else:
                     mapped_query.append((self.detected_operators[token], "filter"))
-                    token_to_map[token] = (self.detected_operators[token], "value")
+                    token_to_map[processed_token] = (self.detected_operators[token], "value")
             elif token in literal_mapped:
                 # mapped_query.append(literal_mapped[token][0])
-                mapped_query.append((literal_mapped[token][0], "field"))
-                token_to_map[token] = (literal_mapped[token][0], "field")
+                mapped_query.append((literal_mapped[token], "field"))
+                token_to_map[processed_token] = (literal_mapped[token], "field")
             elif token in avg_mapped:
                 # if token is in named entity and was mapped to a column -> keep the name + mapped column
                 if avg_mapped[token][0] != '' and avg_mapped[token][0] != token:
                     mapped_query.append((avg_mapped[token][0], "field"))
-                    token_to_map[token] = (avg_mapped[token][0], "field")
+                    token_to_map[processed_token] = (avg_mapped[token][0], "field")
                 elif avg_mapped[token][0] != '':
                     if avg_mapped[token][0] in GRAPH_TYPES:
                         mapped_query.append((avg_mapped[token][0], "graph"))
-                        token_to_map[token] = (avg_mapped[token][0], "graph ")
+                        token_to_map[processed_token] = (avg_mapped[token][0], "graph ")
                     else:
                         mapped_query.append((avg_mapped[token][0], "value"))
-                        token_to_map[token] = (avg_mapped[token][0], "value")
+                        token_to_map[processed_token] = (avg_mapped[token][0], "value")
 
                 if token in self.names and token != avg_mapped[token][0]:
                     # mapped_query.append(token)
                     mapped_query.append(("equals", "filter"))
                     mapped_query.append((token, "value"))
-                    token_to_map[token] = (avg_mapped[token][0], "value")
+                    token_to_map[processed_token] = (avg_mapped[token][0], "value")
             elif token in STOPWORDS:
                 continue
             elif token.replace("_", " ") in GRAPH_TYPES:
                 # mapped_query.append(token)
                 mapped_query.append((token, "graph"))
-                token_to_map[token] = (token, "graph")
+                token_to_map[processed_token] = (token, "graph")
             else:
                 mapped_query.append((token, "value"))
-                token_to_map[token] = (token, "value")
+                token_to_map[processed_token] = (token, "value")
 
         return mapped_query, token_to_map
 

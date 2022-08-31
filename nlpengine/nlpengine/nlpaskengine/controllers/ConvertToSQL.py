@@ -74,7 +74,7 @@ class ConvertToSQL:
             if result == "":
                 result += " WHERE "
             table_name = ""
-            if i["field_name"] in self.meta_data[i["table_name"]]:
+            if i["table_name"] != "" and i["field_name"] in self.meta_data[i["table_name"]]:
                 table_name = f'{i["table_name"]}.'
             for y in range(len(i["operators"])):
                 if i["operators"][y] == "and" or i["operators"][y] == "or":
@@ -95,7 +95,7 @@ class ConvertToSQL:
         for i in measures:
             if i["aggregation_type"] == "group_by":
                 table_name = ""
-                if i["field_name"] in self.meta_data[i["table_name"]]:
+                if i["table_name"] != "" and i["field_name"] in self.meta_data[i["table_name"]]:
                     table_name = f'{i["table_name"]}.'
                     
                 if group_by == "":

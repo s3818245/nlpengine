@@ -8,8 +8,10 @@ from django.http import JsonResponse
 import json
 
 # Create your views here.
+new_db = None
 @csrf_exempt
 def get_query(request):
+    global new_db
     query = request.GET.get('query')
     # new_db = request.session.get("db")
     nlp_processor = NLPInputProcessor(query, new_db.flatten_dimension())
@@ -50,7 +52,34 @@ def connect_database(request):
     global new_db
     new_db = Database(db_name, db_type, db_host, db_port, db_user, db_pass)
     if new_db.get_connection() != None:
-
         return JsonResponse({"message": "Success"}, safe=False)
     else:
+        new_db = None
         return JsonResponse({"message": "Failed"}, safe=False)
+
+
+def disconnect_database(request):
+    global new_db
+    if new_db != None:
+        new_db.close_connection()
+        new_db = None
+    return JsonResponse({"message": "Done"}, safe=False)
+
+
+
+def get_metadata(request):
+    global new_db
+    if new_db != None:
+        return JsonResponse({"metadata": new_db.fetch_dimension(), "db_name": new_db.get_name()}, safe=False)
+    else:
+        return JsonResponse({"metadata": None, "db_name": None}, safe=False)
+
+def get_keyword_type(request):
+    global new_db
+    if new_db != None:
+        query = request.GET.get('query')
+        nlp_processor = NLPInputProcessor(query, new_db.flatten_dimension())
+        mapped_query, token_to_tag = nlp_processor.map_query()
+        return JsonResponse({"mapTag": token_to_tag}, safe=False)
+    else:
+        return JsonResponse({"mapTag": None}, safe=False)

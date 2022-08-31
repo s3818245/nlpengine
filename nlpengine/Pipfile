@@ -13,6 +13,10 @@ swig = "==3.0.12"
 cmake = "*"
 jamspell = "*"
 psycopg2 = "*"
+datefinder = "*"
+dateparser = "*"
+pandas = "*"
+django-cors-headers = "*"
 
 [dev-packages]
 autopep8 = "*"

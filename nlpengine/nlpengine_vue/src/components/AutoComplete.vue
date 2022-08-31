@@ -7,7 +7,7 @@
 
       <input type="text" class="form-control my-highlight" id="basic-url" placeholder="Ask a question..."
         aria-describedby="basic-addon3" @input="onChange" v-model="search" @keydown.down="onArrowDown"
-        @keydown.up="onArrowUp" @keydown.enter="onEnter" />
+        @keydown.up="onArrowUp" />
 
       <button type="button" class="btn mb-2 mb-md-0 py-3 px-3 btn-quarternary"
         @click="getQueryResult(search)">SEND</button>
@@ -24,8 +24,8 @@
     <br />
     Entered Query:
     <span v-for="item in inputArray" :key="item">
-      <Highlighter class="my-highlight" :style="{ color: 'black' }" highlightClassName="highlight" :searchWords="keywordArray"
-      :autoEscape="true" :textToHighlight="item+' '" :highlightStyle="{ backgroundColor: dataKeyword[item] }" />
+      <Highlighter class="my-highlight" :style="{ color: 'black' }" highlightClassName="highlight" :searchWords="Object.keys(testMapWithTag)"
+      :autoEscape="true" :textToHighlight="item+' '" :caseSensitive="false" :highlightStyle="{ backgroundColor: testMapWithTag[item.toLowerCase()] != null ? dataKeyword[testMapWithTag[item.toLowerCase()][1]] : 'pink' }" />
     </span>
    
       <!-- <Highlighter class="my-highlight" :style="{ color: 'black' }" highlightClassName="highlight" :searchWords="keywords"
@@ -76,29 +76,17 @@ export default {
       isLoading: false,
       arrowCounter: -1,
       msg: '',
-
-      keywordArray: [
-        "chicken",
-        "noodle",
-        "soup",
-        "so"
-      ]
-      ,
       dataKeyword: 
         {
-        'chicken': "#f37373" ,
-        'noodle': "#fca88f" ,
-         'soup': "#bbe4cb" ,
-         'so': "#fff05e" 
+        'value': "#f37373" ,
+        'field': "#74D8F5" ,
+        'graph': "#bbe4cb" ,
+        'filter': "#fff05e",
+        'aggregator': "#E8C868"
         },
-      inputArray: []
-
+      inputArray: [],
+      testMapWithTag: {}
     };
-  },
-  computed: {
-    keywords() {
-      inputArray = this.search.split(' ')
-    }
   },
   watch: {
     items: function (value, oldValue) {
@@ -110,6 +98,8 @@ export default {
     watchState: function () {
 
       this.search += " " + this.newValue
+      this.inputArray.push(this.newValue)
+      
 
     }
   },
@@ -121,13 +111,28 @@ export default {
   },
   methods: {
     getQueryResult(queryQuestion) {
-      axios
-        .get("http://127.0.0.1:8000/nlp/query/", {
+      
+        axios
+        .get("http://127.0.0.1:8000/nlp/query/keyword/", {
           params: {
             query: queryQuestion,
           },
         })
-        .then((res) => this.$emit("updateData", res.data))
+        .then((res) => {
+            if (res.data.mapTag){
+              console.log(res.data.mapTag)
+              console.log(this.inputArray)
+              this.testMapWithTag = res.data.mapTag
+            }
+            axios
+              .get("http://127.0.0.1:8000/nlp/query/", {
+                params: {
+                  query: queryQuestion,
+                },
+              })
+              .then((res) => this.$emit("updateData", res.data))
+              .catch((error) => console.log(error));
+        })
         .catch((error) => console.log(error));
     },
     setResult(result) {
@@ -173,11 +178,11 @@ export default {
         this.arrowCounter = this.arrowCounter - 1;
       }
     },
-    onEnter() {
-      this.search += this.results[this.arrowCounter];
-      this.isOpen = false;
-      this.arrowCounter = -1;
-    },
+    // onEnter() {
+    //   this.search += this.results[this.arrowCounter];
+    //   this.isOpen = false;
+    //   this.arrowCounter = -1;
+    // },
   },
 };
 </script>
