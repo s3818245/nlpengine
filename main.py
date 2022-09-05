@@ -7,7 +7,7 @@ from nltk.corpus import stopwords
 from nltk.corpus import wordnet as wn
 from nltk import pos_tag
 from nltk import RegexpParser
-from autocorrect import Speller
+# from autocorrect import Speller
 import jamspell
 import numpy as np
 import os
@@ -521,11 +521,19 @@ def main():
     query = ["Average spending of customers in Hanoi, Vietnam",
              "Average spending of customers before last November",
              "Most profit from animation company that is not Disney from 2012 to 2020",
-             "Most profit from animation company with gross profit from $20 million - $50 million",
+             "Most profit from the studio from August 2020 to September 2021",
+             "Get all the profit from A pharmacy between 2018 and 2020",
+             "Calculate the average age of Male client between 14 Feb 2018 and 7 Jul 2020",
+             "Find the average value of profit make from 17 Jan to 21 Aug",
+             "Most profit from animation company with gross profit from $20 million to $50 million",
              "Movies that have higher profit than Frozen, Moana and Beauty and the Beast",
              "standard deviations of sale last quarter",
              "show geo map of customers by country",
-             "numbers of patients who is from New York and over 50 years old"]
+             "numbers of patients who is from New York and over 50 years old",
+             "Get all sale date in August 15",
+             "Calculate the total profit make in Jan 2019",
+             "Find the max lost happen in Saigon in 2022",
+             "Get data in August 12, August 13, August 14, and Sep 17"]
 
     sample = ['sale', 'country', 'client', 'age', 'production_company', 'date', 'city', "movie"]
 

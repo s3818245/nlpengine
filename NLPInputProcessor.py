@@ -16,7 +16,7 @@ import string
 from collections import deque
 import spacy
 import en_core_web_sm
-from datetime import datetime
+import datetime
 import datefinder
 import dateparser
 from dateutil import parser
@@ -298,13 +298,13 @@ class NLPInputProcessor:
     def preprocess_date(self, sentence):
         processed_sentence = spacy_model(sentence)
         date_input = list()
-        print("spacy")
 
         for ent in processed_sentence.ents:
             if ent.label_ == "DATE":
                 print(ent.text)
                 date_input.append(ent.text)
 
+        print("preprocess date", date_input)
         return date_input
 
     def get_range_month(self, phrase):
@@ -358,6 +358,8 @@ class NLPInputProcessor:
                     for date in dates:
                         if date not in date_list:
                             date_list.append(date.strftime('%Y-%m-%d'))
+
+        print("check date", date_list)
         return date_list
 
     def operators(self, sentence):
@@ -377,7 +379,7 @@ class NLPInputProcessor:
             date_arr = date_input.split(" ")
             year_check = '\d{4}'
             check_year = re.findall(year_check, date_arr[-1])
-            print("check year ", check_year)
+            # print("check year ", check_year)
             if date_arr[-1].isdigit():
                 if len(date_arr) == 1:
                     if check_year:
@@ -403,7 +405,7 @@ class NLPInputProcessor:
                     replaced_phrase = date_range_get[0]
                 else:
                     replaced_phrase = "_".join(phrase.split(" "))
-                sentence = sentence.replace(phrase, replaced_phrase)
+                # sentence = sentence.replace(phrase, replaced_phrase)
                 # operators_map[replaced_phrase] = "between_range"
                 operator_map[replaced_phrase] = replaced_phrase
 
@@ -741,13 +743,19 @@ def main():
     query = ["Average spending of customers in Hanoi, Vietnam",
              "Average spending of customers before last November",
              "Most profit from animation company that is not Disney from 2012 to 2020",
-             "Most profit from animation company with gross profit from $20 million - $50 million",
-             "Companies with profit less than 20",
-             "Companies with profit more than 50",
+             "Most profit from the studio from August 2020 to September 2021",
+             "Get all the profit from A pharmacy between 2018 and 2020",
+             "Calculate the average age of Male client between 14 Feb 2018 and 7 Jul 2020",
+             "Find the average value of profit make from 17 Jan to 21 Aug",
+             "Most profit from animation company with gross profit from $20 million to $50 million",
              "Movies that have higher profit than Frozen, Moana and Beauty and the Beast",
              "standard deviations of sale last quarter",
              "show geo map of customers by country",
-             "numbers of patients who is from New York and over 50 years old"]
+             "numbers of patients who is from New York and over 50 years old",
+             "Get all sale date in August 15",
+             "Calculate the total profit make in Jan 2019",
+             "Find the max lost happen in Saigon in 2022",
+             "Get data in August 12, August 13, August 14, and Sep 17"]
 
     sample = ['sale', 'country', 'client', 'age', 'production_company', 'date', 'city', "movie"]
 
