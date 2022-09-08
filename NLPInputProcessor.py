@@ -363,6 +363,7 @@ class NLPInputProcessor:
         return date_list
 
     def check_date_range(self, phrase, date_list):
+        phrase = str(phrase)
         check_range_operate = [
             'from.* \d{4} [^(?!to).*]*',
             'to.* \d{4}',
@@ -375,8 +376,9 @@ class NLPInputProcessor:
         date_range_get = list()
         for date_check in check_range_operate:
             if "in" in date_check or "last" in date_check:
+                print("in or last ", date_check)
                 year_check = '\d{4}'
-                date_input = str(phrase).split(" ")
+                date_input = phrase.split(" ")
                 check_year = re.findall(year_check, date_input[-1])
                 if check_year is not None and len(date_input[-1]) == 4:
                     if len(date_input) == 1:
@@ -385,7 +387,7 @@ class NLPInputProcessor:
                         date_range_get = self.get_range_month(date_input, date_list)
                     else:
                         date_convert = dateparser.parse(phrase)
-                        if date_convert not in date_list:
+                        if date_convert not in date_list and date_convert is not None:
                             date_list.append(date_convert.strftime('%Y-%m-%d'))
             else:
                 check_date = re.findall(date_check, phrase)
@@ -393,7 +395,6 @@ class NLPInputProcessor:
                 get_date = " ".join(date_to_check[1:]).strip()
                 print(get_date)
 
-                
                 check_get_date = get_date.split(" ")
                 if len(check_get_date) != 0:
                     date_input = dateparser.parse(get_date)
