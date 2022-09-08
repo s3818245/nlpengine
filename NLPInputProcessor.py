@@ -75,7 +75,7 @@ RANGE_CHUNK = [
     'from? [^(?!from).*]* - [\s\S]*',
     'between_[\s\S]*_and_[\s\S]*',
     'from?_[^(?!from).*]*_to_[\s\S]*',
-    'in [^(!in).*]* [\s\S]*',
+    'in? [^(!in).*]* [\s\S]*',
     'last [\s\S]*',
 ]
 
@@ -364,45 +364,108 @@ class NLPInputProcessor:
 
     def check_date_range(self, phrase, date_list):
         phrase = str(phrase)
-        check_range_operate = [
-            'from.* \d{4} [^(?!to).*]*',
-            'to.* \d{4}',
-            'between.* \d{4} [^(?!and).*]*',
-            'and.* \d{4}',
-            'in.* \d{4}',
-            'last.* \d{4}'
-        ]
-        print("phrase in check range:", len(phrase))
         date_range_get = list()
-        for date_check in check_range_operate:
-            if "in" in date_check or "last" in date_check:
-                print("in or last ", date_check)
-                year_check = '\d{4}'
-                date_input = phrase.split(" ")
-                check_year = re.findall(year_check, date_input[-1])
-                if check_year is not None and len(date_input[-1]) == 4:
-                    if len(date_input) == 1:
-                        date_range_get = self.get_range_year(date_input, date_list)
-                    elif len(date_input) == 2:
-                        date_range_get = self.get_range_month(date_input, date_list)
-                    else:
-                        date_convert = dateparser.parse(phrase)
-                        if date_convert not in date_list and date_convert is not None:
-                            date_list.append(date_convert.strftime('%Y-%m-%d'))
+        # for date_check in RANGE_CHUNK:
+        year_check = '\d{4}'
+        if "from" in phrase and "to" in phrase or "between" in phrase and "and" in phrase:
+            # first_date = ""
+            # second_date = ""
+            if "from" in phrase and "to" in phrase:
+                first_date = phrase.split("from")[1].split("to")[0]
+                second_date = phrase.split("to", 1)[1]
+                # print("First:", first_date, ".Second:", second_date)
             else:
-                check_date = re.findall(date_check, phrase)
-                date_to_check = " ".join(check_date).split(" ")
-                get_date = " ".join(date_to_check[1:]).strip()
-                print(get_date)
+                first_date = phrase.split("between")[1].split("and")[0]
+                second_date = phrase.split("and", 1)[1]
+                # print("First:", first_date, ".Second:", second_date)
 
-                check_get_date = get_date.split(" ")
-                if len(check_get_date) != 0:
-                    date_input = dateparser.parse(get_date)
-                    if date_input is not None:
-                        if len(check_get_date) == 1:
-                            date_input = date_input.replace(month=1, day=1)
-                        if date_input not in date_list:
-                            date_list.append(date_input.strftime('%Y-%m-%d'))
+            check_first_year = re.findall(year_check, first_date)
+            check_second_year = re.findall(year_check, second_date)
+            print("First:", check_first_year, ".Second:", check_second_year)
+
+            first_date_arr = first_date.strip().split(" ")
+            second_date_arr = second_date.strip().split(" ")
+            # print("1st_arr:", first_date_arr, ". 2nd_arr:", second_date_arr)
+
+            if check_first_year is not None:
+                date_input = dateparser.parse(first_date)
+                if date_input is not None:
+                    if len(first_date_arr) == 1:
+                        date_input = date_input.replace(month=1, day=1)
+                    elif len(first_date_arr) == 2:
+                        date_input = date_input.replace(day=1)
+                    else:
+                        date_input = date_input
+                    if date_input not in date_list:
+                        date_list.append(date_input.strftime('%Y-%m-%d'))
+            else:
+                date_input = dateparser.parse(first_date)
+                if date_input is not None:
+                    if len(first_date_arr) == 2:
+                        today = date.today()
+                        if date_input.month > today.month:
+                            date_input = date_input.replace(year=today.year - 1)
+                        else:
+                            date_input = date_input
+                    if date_input not in date_list:
+                        date_list.append(date_input.strftime('%Y-%m-%d'))
+
+            if check_second_year is not None:
+                date_input = dateparser.parse(second_date)
+                if date_input is not None:
+                    if len(second_date_arr) == 1:
+                        date_input = date_input.replace(month=1, day=1)
+                    elif len(second_date_arr) == 2:
+                        date_input = date_input.replace(day=1)
+                    else:
+                        date_input = date_input
+                    if date_input not in date_list:
+                        date_list.append(date_input.strftime('%Y-%m-%d'))
+            else:
+                date_input = dateparser.parse(first_date)
+                if date_input is not None:
+                    if len(second_date_arr) == 2:
+                        today = date.today()
+                        if date_input.month > today.month:
+                            date_input = date_input.replace(year=today.year - 1)
+                        else:
+                            date_input = date_input
+                    if date_input not in date_list:
+                        date_list.append(date_input.strftime('%Y-%m-%d'))
+
+        else:
+            if "in" in phrase:
+                date_in = phrase.split("in", 1)[1]
+            else:
+                date_in = phrase.split("last", 1)[1]
+            print("date inputs:", date_in)
+            date_in_arr = date_in.strip().split(" ")
+            check_year = re.findall(year_check, date_in)
+            if check_year is not None:
+                if len(date_in_arr) == 1:
+                    date_range_get = self.get_range_year(phrase, date_list)
+                elif len(date_in_arr) == 2:
+                    date_range_get = self.get_range_month(phrase, date_list)
+                else:
+                    date_convert = dateparser.parse(phrase)
+                    if date_convert not in date_list and date_convert is not None:
+                        date_list.append(date_convert.strftime('%Y-%m-%d'))
+            else:
+                print("date finder")
+        # else:
+        #     check_date = re.findall(date_check, phrase)
+        #     date_to_check = " ".join(check_date).split(" ")
+        #     get_date = " ".join(date_to_check[1:]).strip()
+        #     print("get date:", get_date)
+        #
+        #     check_get_date = get_date.split(" ")
+        #     if len(check_get_date) != 0:
+        #         date_input = dateparser.parse(get_date)
+        #         if date_input is not None:
+        #             if len(check_get_date) == 1:
+        #                 date_input = date_input.replace(month=1, day=1)
+        #             if date_input not in date_list:
+        #                 date_list.append(date_input.strftime('%Y-%m-%d'))
 
         for dates in date_range_get:
             if dates not in date_list:
@@ -447,6 +510,7 @@ class NLPInputProcessor:
         for regex in RANGE_CHUNK:
             matched_phrases = re.findall(regex, sentence)
             for phrase in matched_phrases:
+                print(phrase)
                 date_range_get = self.check_date_range(phrase, date_range_get)
                 if len(date_range_get) >= 2:
                     replaced_phrase = "_to_".join(date_range_get)
@@ -789,18 +853,18 @@ class NLPInputProcessor:
 
 
 def main():
-    query = ["Average spending of customers in Hanoi, Vietnam",
-             "Average spending of customers before last November",
+    query = [# "Average spending of customers in Hanoi, Vietnam",
+             # "Average spending of customers before last November",
              "Most profit from animation company that is not Disney from 2012 to 2020",
              "Most profit from the studio from August 2020 to September 2021",
              "Get all the profit from A pharmacy between 2018 and 2022",
              "Calculate the average age of Male client between 14 Feb 2018 and 7 Jul 2020",
              "Find the average value of profit make from 17 Jan to 21 Aug",
-             "Most profit from animation company with gross profit from $20 million to $50 million",
-             "Movies that have higher profit than Frozen, Moana and Beauty and the Beast",
-             "standard deviations of sale last quarter",
-             "show geo map of customers by country",
-             "numbers of patients who is from New York and over 50 years old",
+             # "Most profit from animation company with gross profit from $20 million to $50 million",
+             # "Movies that have higher profit than Frozen, Moana and Beauty and the Beast",
+             # "standard deviations of sale last quarter",
+             # "show geo map of customers by country",
+             # "numbers of patients who is from New York and over 50 years old",
              "Get all sale date in August 15",
              "Calculate the total profit make in Jan 2019",
              "Find the max lost happen in Saigon in 2022",
