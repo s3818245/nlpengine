@@ -131,7 +131,7 @@ export default {
                 },
               })
               .then((res) => this.$emit("updateData", res.data))
-              .catch((error) => console.log(error));
+              .catch((error) => alert("Cannot conduct SQL query. Please try re-phrase your input!"));
         })
         .catch((error) => console.log(error));
     },
