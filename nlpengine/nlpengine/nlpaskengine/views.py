@@ -31,7 +31,10 @@ def get_query(request):
     where_clause = convertToSQL.where_template(explore_struct.explore_struct["filters"])
 
     if (aggregate != ""):
-        sql_query = select_clause + ", " + aggregate + from_clause + where_clause + group_by
+        if select_clause == "SELECT * " or select_clause == "SELECT DISTINCT ":
+            sql_query = select_clause + aggregate + from_clause + where_clause + group_by
+        else:
+            sql_query = select_clause + ", " + aggregate + from_clause + where_clause + group_by
     else:
         sql_query = select_clause + aggregate + from_clause + where_clause + group_by
 

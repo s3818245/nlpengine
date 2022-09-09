@@ -16,7 +16,7 @@ import string
 from collections import deque
 import spacy
 import en_core_web_sm
-from datetime import datetime
+import datetime
 import datefinder
 import dateparser
 from dateutil import parser
@@ -44,7 +44,7 @@ FILTER = {
     "or": {"or"},
     }
 AGGREGATORS = {
-    "mean": {"mean", "average"},
+    "avg": {"mean", "average"},
     "min": {"least", "min", "minimum", "smallest", "lowest", "cheapest"},
     "max": {"max", "greatest", "most", "maximum"},
     "median": {"median"},
@@ -335,42 +335,46 @@ class NLPInputProcessor:
 
     def get_range_month(self, phrase, date_list):
         convert_date = dateparser.parse(phrase)
-        today = date.today()
-        if today.year < convert_date.year:
-            print("No data")
-        else:
-            if convert_date.month > today.month:
-                first_date = convert_date.replace(day=1, year=(today.year - 1))
-                next_month = convert_date.replace(day=28, year=(today.year - 1)) + datetime.timedelta(days=4)
-                last_date = next_month - datetime.timedelta(days=next_month.day)
-                if first_date not in date_list:
-                    date_list.append(first_date.strftime('%Y-%m-%d'))
-                if last_date not in date_list:
-                    date_list.append(last_date.strftime('%Y-%m-%d'))
-            else:
-                first_date = convert_date.replace(day=1)
-                next_month = convert_date.replace(day=28) + datetime.timedelta(days=4)
-                last_date = next_month - datetime.timedelta(days=next_month.day)
-                if first_date not in date_list:
-                    date_list.append(first_date.strftime('%Y-%m-%d'))
-                if last_date not in date_list:
-                    date_list.append(last_date.strftime('%Y-%m-%d'))
-
+        # today = date.today()
+        # if today.year < convert_date.year:
+        #     print("No data")
+        # else:
+        #     if convert_date.month > today.month:
+        #         first_date = convert_date.replace(day=1, year=(today.year - 1))
+        #         next_month = convert_date.replace(day=28, year=(today.year - 1)) + datetime.timedelta(days=4)
+        #         last_date = next_month - datetime.timedelta(days=next_month.day)
+        #         if first_date not in date_list:
+        #             date_list.append(first_date.strftime('%Y-%m-%d'))
+                
+        #         if last_date not in date_list:
+        #             date_list.append(last_date.strftime('%Y-%m-%d'))
+        # else:
+        if convert_date is not None:
+            first_date = convert_date.replace(day=1)
+            next_month = convert_date.replace(day=28) + datetime.timedelta(days=4)
+            last_date = next_month - datetime.timedelta(days=next_month.day)
+            if first_date not in date_list:
+                date_list.append(first_date.strftime('%Y-%m-%d'))
+            
+            if last_date not in date_list:
+                date_list.append(last_date.strftime('%Y-%m-%d'))
+        
         return date_list
 
     def get_range_year(self, phrase, date_list):
         convert_date = dateparser.parse(phrase)
-        today = date.today()
-        if today.year < convert_date.year:
-            print("No data")
-        elif today.year == convert_date.year:
-            first_date = convert_date.replace(day=1, month=1)
-            last_date = today
-            if first_date not in date_list:
-                date_list.append(first_date.strftime('%Y-%m-%d'))
-            if last_date not in date_list:
-                date_list.append(last_date.strftime('%Y-%m-%d'))
-        else:
+        # today = date.today()
+        # if today.year < convert_date.year:
+        #     print("No data")
+        # elif today.year == convert_date.year:
+        #     first_date = convert_date.replace(day=1, month=1)
+        #     last_date = today
+        #     if first_date not in date_list:
+        #         date_list.append(first_date.strftime('%Y-%m-%d'))
+        #     if last_date not in date_list:
+        #         date_list.append(last_date.strftime('%Y-%m-%d'))
+        # else:
+        if convert_date is not None:
             first_date = convert_date.replace(day=1, month=1)
             last_date = convert_date.replace(day=31, month=12)
             if first_date not in date_list:
@@ -382,7 +386,8 @@ class NLPInputProcessor:
 
     def check_date_range(self, phrase, date_list):
         phrase = str(phrase)
-        date_range_get = list()
+        # date_range_get = list()
+        print(phrase)
         # for date_check in RANGE_CHUNK:
         year_check = '\d{4}'
         if "from" in phrase and "to" in phrase or "between" in phrase and "and" in phrase:
@@ -405,8 +410,9 @@ class NLPInputProcessor:
             second_date_arr = second_date.strip().split(" ")
             # print("1st_arr:", first_date_arr, ". 2nd_arr:", second_date_arr)
 
-            if check_first_year is not None:
+            if len(check_first_year) != 0:
                 date_input = dateparser.parse(first_date)
+                print(date_input)
                 if date_input is not None:
                     if len(first_date_arr) == 1:
                         date_input = date_input.replace(month=1, day=1)
@@ -414,22 +420,24 @@ class NLPInputProcessor:
                         date_input = date_input.replace(day=1)
                     else:
                         date_input = date_input
+                    
                     if date_input not in date_list:
                         date_list.append(date_input.strftime('%Y-%m-%d'))
-            else:
-                date_input = dateparser.parse(first_date)
-                if date_input is not None:
-                    if len(first_date_arr) == 2:
-                        today = date.today()
-                        if date_input.month > today.month:
-                            date_input = date_input.replace(year=today.year - 1)
-                        else:
-                            date_input = date_input
-                    if date_input not in date_list:
-                        date_list.append(date_input.strftime('%Y-%m-%d'))
+            # else:
+            #     date_input = dateparser.parse(first_date)
+            #     if date_input is not None:
+            #         # if len(first_date_arr) == 2:
+            #         #     today = date.today()
+            #         #     if date_input.month > today.month:
+            #         #         date_input = date_input.replace(year=today.year - 1)
+            #         #     else:
+            #         #         date_input = date_input
+            #         if date_input not in date_list:
+            #               date_list.append(date_input.strftime('%Y-%m-%d'))
 
-            if check_second_year is not None:
+            if len(check_second_year) != 0:
                 date_input = dateparser.parse(second_date)
+                print(date_input)
                 if date_input is not None:
                     if len(second_date_arr) == 1:
                         date_input = date_input.replace(month=1, day=1)
@@ -437,19 +445,20 @@ class NLPInputProcessor:
                         date_input = date_input.replace(day=1)
                     else:
                         date_input = date_input
+                    
                     if date_input not in date_list:
                         date_list.append(date_input.strftime('%Y-%m-%d'))
-            else:
-                date_input = dateparser.parse(first_date)
-                if date_input is not None:
-                    if len(second_date_arr) == 2:
-                        today = date.today()
-                        if date_input.month > today.month:
-                            date_input = date_input.replace(year=today.year - 1)
-                        else:
-                            date_input = date_input
-                    if date_input not in date_list:
-                        date_list.append(date_input.strftime('%Y-%m-%d'))
+            # else:
+            #     date_input = dateparser.parse(first_date)
+            #     if date_input is not None:
+            #         # if len(second_date_arr) == 2:
+            #         #     today = date.today()
+            #         #     if date_input.month > today.month:
+            #         #         date_input = date_input.replace(year=today.year - 1)
+            #         #     else:
+            #         #         date_input = date_input
+            #         if date_input not in date_list:
+            #             date_list.append(date_input.strftime('%Y-%m-%d'))
 
         else:
             if "in" in phrase:
@@ -459,17 +468,17 @@ class NLPInputProcessor:
             print("date inputs:", date_in)
             date_in_arr = date_in.strip().split(" ")
             check_year = re.findall(year_check, date_in)
-            if check_year is not None:
+            print("check year:" ,check_year)
+            if len(check_year) != 0:
                 if len(date_in_arr) == 1:
-                    date_range_get = self.get_range_year(phrase, date_list)
+                    date_list = self.get_range_year(phrase, date_list)
                 elif len(date_in_arr) == 2:
-                    date_range_get = self.get_range_month(phrase, date_list)
+                    date_list = self.get_range_month(phrase, date_list)
                 else:
                     date_convert = dateparser.parse(phrase)
                     if date_convert not in date_list and date_convert is not None:
                         date_list.append(date_convert.strftime('%Y-%m-%d'))
-            else:
-                print("date finder")
+            
         # else:
         #     check_date = re.findall(date_check, phrase)
         #     date_to_check = " ".join(check_date).split(" ")
@@ -485,9 +494,9 @@ class NLPInputProcessor:
         #             if date_input not in date_list:
         #                 date_list.append(date_input.strftime('%Y-%m-%d'))
 
-        for dates in date_range_get:
-            if dates not in date_list:
-                date_list.append(dates)
+        # for dates in date_range_get:
+        #     if dates not in date_list:
+        #         date_list.append(dates.strftime('%Y-%m-%d'))
 
         print("check date", date_list)
         return date_list
@@ -507,8 +516,10 @@ class NLPInputProcessor:
         # chunking phrases
         for regex in RANGE_CHUNK:
             matched_phrases = re.findall(regex, sentence)
+            print("matched:", matched_phrases)
             for phrase in matched_phrases:
                 date_range_get = self.check_date_range(phrase, date_range_get)
+                print("date range:", date_range_get)
                 if len(date_range_get) == 0:
                     for date in date_range:
                         date_range_get.append(date.strftime('%Y-%m-%d'))
@@ -519,6 +530,8 @@ class NLPInputProcessor:
                     replaced_phrase = date_range_get[0]
                 else:
                     replaced_phrase = "_".join(phrase.split(" "))
+                print(date_range_get)
+                print(replaced_phrase)
                 sentence = sentence.replace(phrase, replaced_phrase)
                 # operators_map[replaced_phrase] = "between_range"
                 operator_map[replaced_phrase] = replaced_phrase

@@ -122,7 +122,7 @@ class ExploreStructure:
                 else:
                     filter_clause.add_operator(mapped)
 
-                if mapped == "and" or mapped == "or":  # if filter is a connect word -> no value
+                if mapped == "and" or mapped == "or" or mapped == "not":  # if filter is a connect word -> no value
                     filter_clause.add_value(' ')
                     self.explore_struct["filters"].append(self.curr_filter.generated_clause)
                     self.curr_filter = None
@@ -144,7 +144,11 @@ class ExploreStructure:
                 self.curr_filter.add_field(self.last_table)
                 self.curr_filter.add_field(self.last_field)
 
-                self.curr_filter.add_value(mapped)
+                if "_to_" in mapped: 
+                    val = mapped.split("_to_")
+                    self.curr_filter.add_value(val)
+                else:
+                    self.curr_filter.add_value(mapped)
 
                 self.explore_struct["filters"].append(self.curr_filter.generated_clause)
                 self.curr_filter = None
