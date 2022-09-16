@@ -88,6 +88,9 @@ class ExploreStructure:
                         if table is not None:
                             self.curr_measure.add_field(table)
 
+                    if self.curr_filter is not None:
+                        self.curr_filter.add_field(mapped)
+
                 # if self.curr_measure is not None:
                 #     # if a measure is currently generated -> field/table is part of measure clause
                 #     self.curr_measure.add_field(mapped)
@@ -106,6 +109,7 @@ class ExploreStructure:
 
             elif mapped_type == "filter":
                 self.curr_filter = GenerateFilterClause(self.metadata)
+        
                 self.curr_filter.add_field(self.last_field)
                 self.curr_filter.add_field(self.last_table)
 
@@ -117,15 +121,17 @@ class ExploreStructure:
                 if extract_value is not None:
                     filter_clause.add_operator("between")
                     filter_clause.add_value(extract_value)
-                    self.explore_struct["filters"].append(self.curr_filter.generated_clause)
-                    self.curr_filter = None
+                    if self.curr_filter.is_completed:
+                        self.explore_struct["filters"].append(self.curr_filter.generated_clause)
+                        self.curr_filter = None
                 else:
                     filter_clause.add_operator(mapped)
 
                 if mapped == "and" or mapped == "or" or mapped == "not":  # if filter is a connect word -> no value
                     filter_clause.add_value(' ')
-                    self.explore_struct["filters"].append(self.curr_filter.generated_clause)
-                    self.curr_filter = None
+                    if self.curr_filter.is_completed():
+                        self.explore_struct["filters"].append(self.curr_filter.generated_clause)
+                        self.curr_filter = None
                 else:
                     self.last_filter = mapped
 
@@ -142,16 +148,21 @@ class ExploreStructure:
 
                 # if a value is specified without proper filter clause -> default filter is equal
                 self.curr_filter.add_field(self.last_table)
-                self.curr_filter.add_field(self.last_field)
+
+                if self.last_field is not None:
+                    self.curr_filter.add_field(self.last_field)
 
                 if "_to_" in mapped: 
                     val = mapped.split("_to_")
-                    self.curr_filter.add_value(val)
+                    self.curr_filter.add_operator("between")
+                    self.curr_filter.add_value((val[0], val[1]))
                 else:
                     self.curr_filter.add_value(mapped)
 
-                self.explore_struct["filters"].append(self.curr_filter.generated_clause)
-                self.curr_filter = None
+                if self.curr_filter.is_completed(): #delete this if not work
+                    self.explore_struct["filters"].append(self.curr_filter.generated_clause)
+                    self.curr_filter = None
+                # self.curr_filter = None
 
             elif mapped_type == "graph":
                 self.explore_struct["visualization"] = mapped
@@ -159,6 +170,10 @@ class ExploreStructure:
             if (self.curr_measure is not None) and (self.curr_measure.is_completed() == True):
                 self.explore_struct["measures"].append(self.curr_measure.generated_clause)
                 self.curr_measure = None
+            
+            if (self.curr_filter is not None) and (self.curr_filter.is_completed() == True):
+                self.explore_struct["filters"].append(self.curr_filter.generated_clause)
+                self.curr_filter = None
 
             # print current state of explore struct and current token
             # print(f"current filter {self.curr_filter.generated_clause if self.curr_filter is not None else None}")
@@ -239,11 +254,10 @@ class GenerateFilterClause:
 
     def is_completed(self):
         completed = True
-        if self.generated_clause["table_name"] == "" or len(self.generated_clause["field_name"]) == 0:
+        if self.generated_clause["field_name"] == "":
             completed = False
 
-        if len(self.generated_clause["operator"]) == 0 or (len(self.generated_clause["operator"])
-                                                           != len(self.generated_clause["value"])):
+        if self.generated_clause["operator"] == "" or self.generated_clause["value"] == "":
             completed = False
 
         return completed

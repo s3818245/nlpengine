@@ -41,15 +41,43 @@ class ConvertToSQL:
                 else:
                     for i in dimension["field_names"]:
                         if i == '': continue
-                        for y in measures:
-                            if y["aggregation_type"] != "group_by":
-                                print("Aggregation type", y['aggregation_type'])
-                                if y["field_name"] == i and dimension["table_name"] == y['table_name']:
-                                    continue
-                                if select_clause == "":
-                                    select_clause += "SELECT DISTINCT " + i
+                        if measures != []:
+                            for y in measures:
+                                if y["aggregation_type"] != "group_by":
+                                    print("Aggregation type", y['aggregation_type'])
+                                    # if y["field_name"] == i and dimension["table_name"] == y['table_name']:
+                                    #     continue
+                                    if select_clause == "":
+                                        # if y['aggregation_type'] != 'max' and y['aggregation_type'] != 'min' and y['aggregation_type'] != 'avg' and y['aggregation_type'] != 'sum':
+                                        #     select_clause += "SELECT DISTINCT " + i
+                                        # else:
+                                        select_clause += "SELECT DISTINCT "
+                                    # else:
+                                    #     # if y['aggregation_type'] != 'max' and y['aggregation_type'] != 'min' and y['aggregation_type'] != 'avg':
+                                    #     # if select_clause == "SELECT DISTINCT ":
+                                    #     #     select_clause += i
+                                    #     # else:
+                                    #     select_clause += ", "
                                 else:
-                                    select_clause += ", " + i
+                                    if y["field_name"] == i and dimension["table_name"] == y['table_name']:
+                                        if select_clause == "":
+                                            select_clause += "SELECT DISTINCT " + i
+                                        elif select_clause == "SELECT DISTINCT ":
+                                            select_clause += i
+                                        else:
+                                            select_clause += ", " + i
+                        else:
+                            for i in dimensions:
+                                table_name = ""
+                                for y in i['field_names']:
+                                    if y == '': continue
+                                    if i["table_name"] != "" and y in self.meta_data[i["table_name"]]:
+                                        table_name = f'{i["table_name"]}.'
+                                    if select_clause == "":
+                                        select_clause += f'SELECT DISTINCT {table_name}{y}'
+                                    else:
+                                        select_clause += f', {table_name}{y}'
+                                    
             for i in range(len(dimensions)):
                 for y in range(len(dimensions)):
                     if y == i: continue
@@ -81,13 +109,26 @@ class ConvertToSQL:
                         #     continue
                         print(select_clause)
                         if select_clause == "":
-                            if y['aggregation_type'] != 'max' and y['aggregation_type'] != 'min' and y['aggregation_type'] != 'avg':
+                            # if y['aggregation_type'] != 'max' and y['aggregation_type'] != 'min' and y['aggregation_type'] != 'avg':
+                            #     select_clause += "SELECT DISTINCT " + i
+                            # else:
+                            select_clause += "SELECT DISTINCT "
+                        # else:
+                        #     # if y['aggregation_type'] != 'max' and y['aggregation_type'] != 'min' and y['aggregation_type'] != 'avg':
+                        #     #     if select_clause == "SELECT DISTINCT ":
+                        #     #         select_clause += i
+                        #     #     else:
+                        #     select_clause += " "
+                                
+                    else:
+                        if y["field_name"] == i and dimensions[0]["table_name"] == y['table_name']:
+                            if select_clause == "":
                                 select_clause += "SELECT DISTINCT " + i
+                            elif select_clause == "SELECT DISTINCT ":
+                                select_clause += i
                             else:
-                                select_clause += "SELECT DISTINCT "
-                        else:
-                            if y['aggregation_type'] != 'max' and y['aggregation_type'] != 'min' and y['aggregation_type'] != 'avg':
                                 select_clause += ", " + i
+
             return (select_clause, from_clause)
         else:
             return self.base_template(dimensions[0])
@@ -109,15 +150,22 @@ class ConvertToSQL:
                     result += " " + i["operators"][y] + " "
                 elif i["operators"][y] == "between":
                     val1, val2 =i["values"][y]
+                    if "_" in val1:
+                        val1 = val1.replace("_"," ")
+                    if "_" in val2:
+                        val2 = val2.replace("_"," ")
                     if val1.isnumeric() == False or val2.isnumeric() == False:
                         result += f'{table_name}{i["field_name"]} ' + i["operators"][y] + " '" + val1 + "' and '" + val2 + "'"
                     else:
                         result += f'{table_name}{i["field_name"]} ' + i["operators"][y] + " " + val1 + " and " + val2
                 else:
-                    if i["values"][y].isnumeric() == False:
-                        result += f'{table_name}{i["field_name"]} ' + operators[i["operators"][y]] + " '" + i["values"][y] + "'"
+                    val = i["values"][y]
+                    if "_" in val:
+                        val = val.replace("_"," ")
+                    if val.isnumeric() == False:
+                        result += f'{table_name}{i["field_name"]} ' + operators[i["operators"][y]] + " '" + val + "'"
                     else:
-                        result += f'{table_name}{i["field_name"]} ' + operators[i["operators"][y]] + " " + i["values"][y]
+                        result += f'{table_name}{i["field_name"]} ' + operators[i["operators"][y]] + " " + val
         return result
 
     def aggregate_template(self, measures):

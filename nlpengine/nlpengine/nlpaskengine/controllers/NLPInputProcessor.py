@@ -35,6 +35,8 @@ spacy_model = en_core_web_sm.load()
 STOPWORDS = set(stopwords.words('english'))
 
 FILTER = {
+    ">=": {">="},
+    "<=":{"<="},
     "less": {"<", "less", "smaller", "below", "under", "before"},
     "greater": {">", "over", "bigger", "greater", "more", "above", "after", "higher"},
     "not": {"not"},
@@ -46,7 +48,7 @@ FILTER = {
 AGGREGATORS = {
     "avg": {"mean", "average"},
     "min": {"least", "min", "minimum", "smallest", "lowest", "cheapest"},
-    "max": {"max", "greatest", "most", "maximum"},
+    "max": {"max", "greatest", "most", "maximum", "highest"},
     "median": {"median"},
     "count": {"count", "many"},
     "sum": {"sum", "total"},
@@ -525,9 +527,9 @@ class NLPInputProcessor:
                         date_range_get.append(date.strftime('%Y-%m-%d'))
 
                 if len(date_range_get) >= 2:
-                    replaced_phrase = "_to_".join(date_range_get)
+                    replaced_phrase = "date " + "_to_".join(date_range_get)
                 elif len(date_range_get) == 1:
-                    replaced_phrase = date_range_get[0]
+                    replaced_phrase = "date " + date_range_get[0]
                 else:
                     replaced_phrase = "_".join(phrase.split(" "))
                 print(date_range_get)
@@ -804,7 +806,7 @@ class NLPInputProcessor:
                 #     highest_similarity = avg_simi
                 #     mapped = keyword
 
-                if avg_simi > 0.25:
+                if avg_simi > 0.23:
                     candidates_map.append((keyword, avg_simi))
 
             # benchmark: only map if similarity is higher than 0.25
